@@ -1,35 +1,13 @@
-import 'dart:convert';
-
 import 'package:cc98_ocean/controls/fluent_iconbutton.dart';
 import 'package:cc98_ocean/controls/info_flower.dart';
 import 'package:cc98_ocean/controls/info_indicator.dart';
 import 'package:cc98_ocean/controls/status_title.dart';
 import 'package:cc98_ocean/core/constants/color_tokens.dart';
-import 'package:cc98_ocean/core/kernel.dart';
+import 'package:cc98_ocean/core/models/message.dart';
+import 'package:cc98_ocean/core/services/user_service.dart';
 import 'package:cc98_ocean/pages/profile.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-class ChatMessage {
-  final String content;
-  final int id;
-  final int senderId;
-  final String time;
-  ChatMessage({
-    required this.content, 
-    required this.id,
-    required this.senderId,
-    required this.time
-  });
-  factory ChatMessage.fromJson(Map<String,dynamic> json){
-    return ChatMessage(
-      content: json["content"] as String? ??"", 
-      id: json["id"] as int? ??0, 
-      senderId: json["senderId"] as int? ??0,
-      time: DateFormat('yyyy-MM-dd HH:mm').format(DateTime.parse(json['time'] ?? DateTime.now().toString()).add(const Duration(hours: 8)))
-      );
-  }
-}
 class Chat extends StatefulWidget {
   final int senderId;
   final String senderName;
@@ -39,6 +17,7 @@ class Chat extends StatefulWidget {
 }
 
 class _ChatState extends State<Chat> {
+  final _userService = UserService();
   final TextEditingController _controller = TextEditingController();
   final List<ChatMessage> messages = [];
   int currentPage=0;
@@ -59,32 +38,25 @@ class _ChatState extends State<Chat> {
       hasError=false;
       isLoading=true;
     });
-    String url="https://api.cc98.org/message/user/${widget.senderId}?from=${currentPage*pageSize}&size=$pageSize";
-    try
-    {
-      final res=await RequestSender.simpleRequest(url);
-      if(!res.startsWith("404:")){
-        var list=json.decode(res) as List;
-        final data=list.map((e)=>ChatMessage.fromJson(e as Map<String,dynamic>)).toList();
-        setState(() {
-          hasMore=data.length==pageSize;
-          for (var e in data) {
-          messages.insert(0, e);//通过插入来实现倒置
-        }});
-      }
-    }
-    catch(e){
+    final result = await _userService.getChatHistory(widget.senderId, currentPage * pageSize);
+    if (result.isError) {
       setState(() {
-        errorMessage=e.toString();
-        hasError=true;
+        errorMessage = result.error!.message;
+        hasError = true;
+        isLoading = false;
       });
-    }
-    finally{
+    } else {
+      final data = result.data!;
       setState(() {
-        isLoading=false;
+        hasMore = data.length == pageSize;
+        for (var e in data) {
+          messages.insert(0, e);
+        }
+        isLoading = false;
       });
     }
   }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(

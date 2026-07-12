@@ -1,28 +1,34 @@
-import 'package:cc98_ocean/controls/smart_image.dart';
 import 'package:flutter/material.dart';
 
 class PortraitOval extends StatelessWidget {
   final String url;
-  const PortraitOval({super.key, required this.url});
+  final double size;
+  const PortraitOval({super.key, required this.url, this.size = 36});
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-              height: 36,
-              width: 36,
-              child: ClipOval(
-                child: Image(image: SmartNetworkImage(url),height: 36,width: 36,errorBuilder: (context, error, stackTrace) => buildDefaultAvatar(url)), 
-              ),
-            );
+      height: size,
+      width: size,
+      child: ClipOval(
+        child: url.isNotEmpty
+            ? Image.network(url,
+                height: size,
+                width: size,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) =>
+                    buildDefaultAvatar(url))
+            : buildDefaultAvatar(url),
+      ),
+    );
   }
-  Widget buildDefaultAvatar(String url){
-    if(url.contains("boy")){
+
+  Widget buildDefaultAvatar(String url) {
+    if (url.contains("boy")) {
       return Image.asset("assets/images/default_avatar_boy.png");
-    }
-    else if(url.contains("girl")){
+    } else if (url.contains("girl")) {
       return Image.asset("assets/images/default_avatar_girl.png");
-    }
-    else{
+    } else {
       return Image.asset("assets/images/unknown.gif");
     }
   }

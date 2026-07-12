@@ -1,11 +1,11 @@
 import 'dart:ui';
 
-import 'package:cc98_ocean/core/kernel.dart';
+import 'package:dio/dio.dart';
+import 'package:cc98_ocean/core/network/api_client.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-
-///带有webvpn封装的图片源
+/// 智能网络图片源，通过 [ApiClient] 加载远程图片。
 class SmartNetworkImage extends ImageProvider<SmartNetworkImage> {
   final String url;
   final int? memCacheWidth;
@@ -13,11 +13,16 @@ class SmartNetworkImage extends ImageProvider<SmartNetworkImage> {
 
   const SmartNetworkImage(this.url, {this.memCacheWidth, this.memCacheHeight});
 
-
   Future<Uint8List> _loadBytes() async {
-    final res = await Connector().get(url); // ← 想怎么下就怎么下
-    if (res.statusCode != 200) throw Exception('${res.statusCode}');
-    return res.bodyBytes;
+    final result = await ApiClient.instance.getTyped<Uint8List>(
+      url,
+      fromJson: (json) => json as Uint8List,
+      options: Options(responseType: ResponseType.bytes),
+    );
+    if (result.isError) {
+      throw Exception('${result.error!.statusCode}: ${result.error!.message}');
+    }
+    return result.data!;
   }
 
   @override

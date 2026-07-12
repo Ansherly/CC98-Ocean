@@ -1,47 +1,17 @@
 
-import 'dart:convert';
-
 import 'package:cc98_ocean/controls/adaptive_scrollviewer.dart';
 import 'package:cc98_ocean/controls/info_indicator.dart';
 import 'package:cc98_ocean/controls/status_title.dart';
-import 'package:cc98_ocean/core/kernel.dart';
-import 'package:cc98_ocean/pages/boards.dart';
+import 'package:cc98_ocean/core/models/board.dart';
+import 'package:cc98_ocean/core/services/board_service.dart';
 import 'package:cc98_ocean/controls/fluent_iconbutton.dart';
+import 'package:cc98_ocean/ubb_text_block/ubb_text.dart';
 import 'package:cc98_ocean/controls/hyperlink_button.dart';
 import 'package:cc98_ocean/controls/pager.dart';
 import 'package:cc98_ocean/core/constants/color_tokens.dart';
-import 'package:cc98_ocean/core/helper.dart';
 import 'package:cc98_ocean/pages/topic.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bbcode/flutter_bbcode.dart';
-
-class StandardPost {
-  final int id;
-  final String title;
-  final String userName;
-  final int replyCount;
-  final int hitCount;
-
-  StandardPost({
-    required this.id,
-    required this.title,
-    required this.userName,
-    required this.replyCount,
-    required this.hitCount
-  });
-
-  factory StandardPost.fromJson(Map<String, dynamic> json) {
-    return StandardPost(
-      id: json['id'] as int,
-      title: json['title'] as String,
-      userName: json["userName"] as String? ??"匿名",
-      replyCount: json["replyCount"] as int,
-      hitCount: json["hitCount"] as int
-    );
-  }
-}
-
 
 class Board extends StatefulWidget {
   final int boardId;
@@ -86,48 +56,36 @@ class _BoardState extends State<Board> with TickerProviderStateMixin
       hasError = false;
     });
 
-  String url="https://api.cc98.org/board/${widget.boardId}";
-  try{
-    String res=await RequestSender.simpleRequest(url);
-    getTopic();
-    if(!res.startsWith("404:")){
-      setState(() {
-        data=BoardInfo.fromJson(json.decode(res) as Map<String,dynamic>);
-      });
-    }
-  }catch(e){
+  final result = await BoardService().getBoardInfo(widget.boardId);
+  if (result.isError) {
     setState(() {
-        hasError = true;
-        errorMessage = '加载失败: ${e.toString()}';
-      });
-  }finally{
-     setState(() {
-       isLoading = false;
-     });
+      hasError = true;
+      errorMessage = result.error!.message;
+      isLoading = false;
+    });
+  } else {
+    setState(() {
+      data = result.data!;
+      isLoading = false;
+    });
+    getTopic();
   }
   }
   
   Future<void> getTopic()async{
     
-    String url="https://api.cc98.org/board/${widget.boardId}/topic?from=${currentPage*pageSize}&size=$pageSize";
-    try{
-      final res=await RequestSender.simpleRequest(url);
-    if(!res.startsWith("404:")){
-      final data=json.decode(res) as List<dynamic>;
-      setState(() {
-        posts.clear();//在状态管理中处理UI数据源更新，而不是在外部
-        final newPosts=data.map((e)=>StandardPost.fromJson((e as Map<String,dynamic>))).toList();
-        posts.addAll(newPosts);
-        isLoading=false;
-      });
-    }
-    }
-    catch(e)
-    {
+    final result = await BoardService().getBoardTopics(widget.boardId, currentPage * pageSize);
+    if (result.isError) {
       setState(() {
         isLoading = false;
         hasError = true;
-        errorMessage = '加载失败: ${e.toString()}';
+        errorMessage = result.error!.message;
+      });
+    } else {
+      setState(() {
+        posts.clear();
+        posts.addAll(result.data!);
+        isLoading = false;
       });
     }
     
@@ -235,7 +193,7 @@ class _BoardState extends State<Board> with TickerProviderStateMixin
         shape: RoundedRectangleBorder(borderRadius: BorderRadiusGeometry.circular(8)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12,vertical: 8),
-          child: BBCodeText(data:BBCodeConverter.convertBBCode(bigPaper),stylesheet: defaultBBStylesheet(textStyle: TextStyle(fontSize: 12,color: Colors.black)),),
+          child: UbbText(data: bigPaper),
         )),
     );
   }

@@ -7,56 +7,13 @@ import 'package:cc98_ocean/controls/portrait_oval.dart';
 import 'package:cc98_ocean/controls/smart_image.dart';
 import 'package:cc98_ocean/controls/status_title.dart';
 import 'package:cc98_ocean/core/constants/color_tokens.dart';
+import 'package:cc98_ocean/core/models/post.dart';
 import 'package:cc98_ocean/core/helper.dart';
-import 'package:cc98_ocean/core/kernel.dart';
-import 'package:cc98_ocean/pages/focus.dart';
+import 'package:cc98_ocean/core/services/post_service.dart';
 import 'package:cc98_ocean/pages/topic.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
-import 'dart:convert';
 
-class Post{
-  final int id;
-  final int userId;
-  int likeCount;
-  int dislikeCount;
-  int replyCount;
-  int hitCount;
-  final String userName;
-  final String title;
-  final String time;
-  final bool isMe;
-  String portraitUrl=""; 
-  final Map<String,dynamic> mediaContent;
-  Post({
-    required this.id,
-    required this.isMe,
-    required this.userId,
-    required this.dislikeCount,
-    required this.hitCount,
-    required this.likeCount,
-    required this.replyCount,
-    required this.time,
-    required this.title,
-    required this.userName,
-    required this.mediaContent
-  });
-  factory Post.fromJson(Map<String,dynamic> json){
-    return Post(
-      id:json["id"] as int? ??0,
-      isMe: json["isMe"] as bool? ??false,
-      userId: json["userId"] as int? ??0,
-      dislikeCount: json["dislikeCount"] as int? ??0,
-      hitCount: json["hitCount"] as int? ??0,
-      likeCount: json["likeCount"] as int? ??0, 
-      replyCount: json["replyCount"] as int? ??0,
-      time: json["time"] as String? ??"", 
-      title: json["title"] as String? ??"未知内容",
-      userName: json["userName"] as String? ??"匿名用户",
-      mediaContent: json["mediaContent"] as Map<String,dynamic>? ?? {}
-      );
-  }
-}
 
 class Discover extends StatefulWidget {
   const Discover({super.key});
@@ -66,13 +23,14 @@ class Discover extends StatefulWidget {
 }
 
 class _DiscoverState extends State<Discover> {
-  List<Post> posts = [];
+  List<FeedPost> posts = [];
   bool isLoading = true;
   bool hasError = false;
   int currentPage = 0;
   int pageSize = 20;
   String errorMessage = '';
   final ScrollController controller = ScrollController();
+  final _postService = PostService();
   @override
   void initState() {
     super.initState();
@@ -87,39 +45,19 @@ class _DiscoverState extends State<Discover> {
       hasError = false;
     });
 
-    try {
-      String response=await RequestSender.getNewTopic(currentPage, pageSize);
-      if(!response.startsWith("404:")){
-        List list = json.decode(response) as List;
-        final existingIds = posts.map((e) => e.id).toSet();
-        //去重处理
-        final data=list.map((e)=>Post.fromJson(e as Map<String,dynamic>)).where((p)=>!existingIds.contains(p.id)).toList();
-        final List<int> userIds = data.map((e) => e.userId).toSet().toList();
-        final portraitMap=Deserializer.parseUserPortrait(await RequestSender().getUserPortrait(userIds));
-        for (var e in data) {
-          SimpleUserInfo? user;
-          try {
-            user = portraitMap.firstWhere((u) => u.userId == e.userId);
-          } catch (_) {
-            user = null;
-          }
-          if (user != null) {
-            e.portraitUrl = user.portraitUrl;
-          }
-        }
-      setState(() {
-        posts.addAll(data);
-      });
-      }
- 
-    } catch (e) {
+    final result = await _postService.getNewTopics(currentPage * pageSize);
+    if (result.isError) {
       setState(() {
         hasError = true;
-        errorMessage = '加载失败: ${e.toString()}';
+        errorMessage = result.error!.message;
+        isLoading = false;
       });
-    }finally{
+    } else {
+      final existingIds = posts.map((e) => e.id).toSet();
+      final newPosts = result.data!.where((p) => !existingIds.contains(p.id)).toList();
       setState(() {
-        isLoading=false;
+        posts.addAll(newPosts);
+        isLoading = false;
       });
     }
   }
@@ -191,7 +129,7 @@ class _DiscoverState extends State<Discover> {
   }
   
   // 构建帖子列表项
-  Widget buildPostItem(Post post) {
+  Widget buildPostItem(FeedPost post) {
   final mediaMap=post.mediaContent;//取出第一层
   final thumbNails=(mediaMap["thumbnail"] as List<dynamic>?)?.cast<String>()??<String>[];
   return Card( 
@@ -267,8 +205,8 @@ class _DiscoverState extends State<Discover> {
                       shape: RoundedRectangleBorder(side: BorderSide(color: ColorTokens.softPurple),borderRadius:BorderRadiusGeometry.circular(6)),
                       child: ClipRRect(
                         borderRadius: BorderRadiusGeometry.circular(6),
-                        child: Image(
-                              image:SmartNetworkImage(url),
+                        child: Image.network(
+                              url,
                               width: 150,
                               fit: BoxFit.contain,
                               errorBuilder: (context, error, stackTrace) =>

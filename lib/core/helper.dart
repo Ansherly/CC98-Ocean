@@ -38,7 +38,6 @@ class BBCodeConverter {
     input= convertEmojiTags(input);
     input=convertColorTags(input);
     input=convertAlignTags(input);
-    input=convertUnusedTags(input);
     return input.trim();
   }
   static String convertAlignTags(String input) {

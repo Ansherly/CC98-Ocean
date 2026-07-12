@@ -1,79 +1,23 @@
 import 'package:cc98_ocean/controls/info_indicator.dart';
+import 'package:cc98_ocean/controls/portrait_oval.dart';
 import 'package:cc98_ocean/controls/smart_image.dart';
 import 'package:cc98_ocean/controls/status_title.dart';
-import 'package:cc98_ocean/core/kernel.dart';
+import 'package:cc98_ocean/core/models/user.dart';
+import 'package:cc98_ocean/core/models/board.dart';
+import 'package:cc98_ocean/core/services/user_service.dart';
 import 'package:cc98_ocean/core/link_definition.dart';
-import 'package:cc98_ocean/pages/board.dart';
+import 'package:cc98_ocean/ubb_text_block/ubb_text.dart';
 import 'package:cc98_ocean/controls/clickarea.dart';
 import 'package:cc98_ocean/controls/expand_button.dart';
 import 'package:cc98_ocean/controls/extended_tags.dart';
 import 'package:cc98_ocean/controls/fluent_iconbutton.dart';
 import 'package:cc98_ocean/core/constants/color_tokens.dart';
-import 'package:cc98_ocean/core/helper.dart';
 import 'package:cc98_ocean/pages/friends.dart';
-import 'package:cc98_ocean/pages/mailbox.dart';
 import 'package:cc98_ocean/pages/settings.dart';
 import 'package:cc98_ocean/pages/topic.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bbcode/flutter_bbcode.dart';
-import 'dart:convert';
-class User{
-  final int id;
-  final String name;
-  final String portraitUrl;
-  final int postCount;
-  final int fanCount;
-  final int followCount;
-  final int gender;
-  final int popularity;
-  final int wealth;
-  final String introduction;
-  final String signatureCode;
-  final String levelTitle;
-  final bool isFollowing;
-  User({
-    required this.id,
-    required this.name,
-    required this.portraitUrl,
-    required this.fanCount,
-    required this.postCount,
-    required this.gender,
-    required this.introduction,
-    required this.followCount,
-    required this.popularity,
-    required this.wealth,
-    required this.isFollowing,
-    required this.levelTitle,
-    required this.signatureCode
-  });
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is User && runtimeType == other.runtimeType && id == other.id&&name==other.name;
-
-  @override
-  int get hashCode => id.hashCode;
-
-  factory User.fromJson(Map<String, dynamic> json) {
-    return User(
-      id:json["id"] as int,
-      name: json["name"] as String? ??"未知用户",
-      portraitUrl: json["portraitUrl"]as String? ??"",
-      followCount: json["followCount"] as int? ?? 0,
-      fanCount: json["fanCount"] as int? ??0,
-      postCount: json["postCount"] as int? ??0,
-      gender: json["gender"] as int? ?? 1,
-      popularity: json["popularity"] as int? ?? 0,
-      wealth: json["wealth"] as int? ?? 0,
-      introduction: json["introduction"] as String? ??"Ta还没有设置简介~",
-      isFollowing: json["isFollowing"] as bool? ?? false,
-      signatureCode: json["signatureCode"] as String? ??"",
-      levelTitle: json["levelTitle"] as String? ??"98er"
-    );
-  }
-}
 
 class Profile extends StatefulWidget {
   final int userId;
@@ -98,6 +42,7 @@ class _ProfileState extends State<Profile> {
   String errorMessage = '';
   int currentPage = 0;
   final int pageSize = 10;
+  final _userService = UserService();
   
   @override
   void initState() {
@@ -139,51 +84,43 @@ class _ProfileState extends State<Profile> {
       isLoading = true;
       hasError = false;
     });
-    try {
-      String targetUrl =widget.userId==0?'https://api.cc98.org/me':'https://api.cc98.org/user/${widget.userId}';
-      final res =await Connector().get(targetUrl);
-      if (res.statusCode == 200) {
-        userProfile = User.fromJson(json.decode(res.body) as Map<String,dynamic>);
-      } else {
-        setState(() {
-          errorMessage='获取用户信息失败: ${res.statusCode}';
-          hasError=true;
-        });
-      }
- 
-      getTopics();
-    } catch (e) {
+    final result = await _userService.getUserProfile(isMe: widget.userId == 0, userId: widget.userId);
+    if (result.isError) {
       setState(() {
+        errorMessage = result.error!.message;
         hasError = true;
-        errorMessage = e.toString();
+        isLoading = false;
       });
-    }finally{
-      setState(() {
-        isLoading=false;
-      });
+    } else {
+      userProfile = result.data!;
+      getTopics();
     }
   }
   Future<void> getTopics() async {
-    String targetUrl =widget.userId==0?'https://api.cc98.org/me/recent-topic?from=${currentPage * pageSize}&size=$pageSize':'https://api.cc98.org/user/${widget.userId}/recent-topic?from=${currentPage * pageSize}&size=$pageSize';
     // 获取历史发帖
-      final topicsResponse = await Connector().get(targetUrl);
+      final topicResult = await _userService.getRecentTopics(
+        isMe: widget.userId == 0,
+        userId: widget.userId,
+        start: currentPage * pageSize,
+      );
 
-      if (topicsResponse.statusCode == 200) {
-        final List<dynamic> newTopics = json.decode(topicsResponse.body);
-        final List<StandardPost> data=newTopics.map((e)=>StandardPost.fromJson(e as Map<String,dynamic>)).toList();
-        if(data.length==11){
-          data.removeLast();
-          // 如果有11条数据，移除最后一条
+      if (topicResult.isError) {
+        setState(() {
+          hasError = true;
+          errorMessage = topicResult.error!.message;
+          isLoading = false;
+        });
+      } else {
+        final parsed = topicResult.data!;
+        if (parsed.length == 11) {
+          parsed.removeLast();
         }
         setState(() {
-          recentTopics.addAll(data);
+          recentTopics.addAll(parsed);
           isLoading = false;
-          hasMore = data.length == pageSize;
+          hasMore = parsed.length == pageSize;
         });
-        // 如果返回的数量等于pageSize，说明还有更多数据 
-      } else {
-        throw Exception('获取历史发帖失败: ${topicsResponse.statusCode}');
-      } 
+      }
   }
   
 
@@ -244,13 +181,7 @@ class _ProfileState extends State<Profile> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // 头像
-              CircleAvatar(
-                radius: 40,
-                backgroundImage: SmartNetworkImage(
-                  userProfile.portraitUrl,
-                ),
-                backgroundColor: colorBase.surface,
-              ),
+              PortraitOval(url:userProfile.portraitUrl, size: 40),
               const SizedBox(width: 16),
               // 昵称和基本信息
               Expanded(
@@ -361,7 +292,7 @@ class _ProfileState extends State<Profile> {
           SizedBox(width: 8),
           Expanded(
             child: isExpanded?(signature.isNotEmpty
-                  ? BBCodeText(data: BBCodeConverter.convertBBCode(signature),stylesheet: extendedStyle,)
+                  ? UbbText(data: signature)
                   : const Text(
                       '该用户还没有设置签名档',
                       textAlign: TextAlign.center,

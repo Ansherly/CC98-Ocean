@@ -5,7 +5,6 @@ import 'package:cc98_ocean/core/themes/app_themes.dart';
 import 'package:cc98_ocean/core/themes/setting_controller.dart';
 import 'package:cc98_ocean/pages/home.dart';
 import 'package:cc98_ocean/pages/login.dart';
-import 'package:cc98_ocean/pages/vpn_setup.dart';
 import 'package:flutter/foundation.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
@@ -32,19 +31,19 @@ import 'package:provider/provider.dart';
   
   MediaKit.ensureInitialized();
   await AuthService().init();
-  int appState=await AuthService().getAppState();
-  runApp(CC98(appState:appState));
+  final bool isLoggedIn = await AuthService().isLoggedIn();
+  runApp(CC98(isLoggedIn: isLoggedIn));
 }
 
 class CC98 extends StatelessWidget {
-  final int appState;
-  
-  const CC98({super.key, required this.appState});
-  
+  final bool isLoggedIn;
+
+  const CC98({super.key, required this.isLoggedIn});
+
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => AppState(), 
+      create: (_) => AppState(),
       child: Consumer<AppState>(
         builder: (context, appStateProvider, _) => MaterialApp(
           debugShowCheckedModeBanner: false,
@@ -60,7 +59,7 @@ class CC98 extends StatelessWidget {
             ),
           ),
           themeMode: appStateProvider.themeModeEnum,
-          home: buildAppBody(appState),                                               
+          home: buildAppBody(isLoggedIn),
         ),
       ),
     );
@@ -68,14 +67,14 @@ class CC98 extends StatelessWidget {
 }
 
 
-Widget buildAppBody(int appState){
-  if(kIsWeb)return appState==1?Home():(appState==2?VpnSetup():Login());
-  if(Platform.isAndroid||Platform.isIOS)return appState==1?Home():(appState==2?VpnSetup():Login());
+Widget buildAppBody(bool isLoggedIn){
+  if(kIsWeb)return isLoggedIn?Home():Login();
+  if(Platform.isAndroid||Platform.isIOS)return isLoggedIn?Home():Login();
   return  Scaffold(
         body: Column(
           children: [
             SizedBox(
-              height: 48.0, 
+              height: 48.0,
               child: Padding(
                 padding: const EdgeInsets.only(left: 8),
                 child: Row(
@@ -100,7 +99,7 @@ Widget buildAppBody(int appState){
                     ),
                         ]),
               )),
-                      Expanded(child:appState==1?Home():(appState==2?VpnSetup():Login()) )
+                      Expanded(child:isLoggedIn?Home():Login() )
                       ]));
 }
 Widget buildWindowOperation(IconData icon,VoidCallback? onPressed) {

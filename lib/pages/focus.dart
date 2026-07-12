@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:cc98_ocean/controls/clickarea.dart';
 import 'package:cc98_ocean/controls/adaptive_divider.dart';
 import 'package:cc98_ocean/controls/fluent_iconbutton.dart';
@@ -8,40 +7,15 @@ import 'package:cc98_ocean/controls/segmented.dart';
 import 'package:cc98_ocean/controls/smart_image.dart';
 import 'package:cc98_ocean/controls/status_title.dart';
 import 'package:cc98_ocean/core/constants/color_tokens.dart';
-import 'package:cc98_ocean/core/kernel.dart';
-import 'package:cc98_ocean/pages/discover.dart';
+import 'package:cc98_ocean/core/models/post.dart';
+import 'package:cc98_ocean/core/models/user.dart';
+import 'package:cc98_ocean/core/services/post_service.dart';
 import 'package:cc98_ocean/core/helper.dart';
 import 'package:cc98_ocean/pages/profile.dart';
 import 'package:cc98_ocean/pages/topic.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 
-class SimpleUserInfo{
-  final int userId;
-  final String userName;
-  final String portraitUrl;
-  SimpleUserInfo({
-    required this.userId,
-    required this.userName,
-    required this.portraitUrl
-  });
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is SimpleUserInfo && runtimeType == other.runtimeType && userId == other.userId&&userName==other.userName;
-
-  @override
-  int get hashCode => userId.hashCode;
-
-  factory SimpleUserInfo.fromJson(Map<String, dynamic> json) {
-    return SimpleUserInfo(
-      userId:json["id"] as int? ??0,
-      userName: json["name"] as String? ??"匿名",
-      portraitUrl: json["portraitUrl"]??""
-    );
-  }
-}
 
 class Moments extends StatefulWidget {
   const Moments({super.key});
@@ -58,8 +32,9 @@ class _MomentsState extends State<Moments>{
   bool hasError=false;
   bool hasMore=true;
   String errorMessage="";
-  List<dynamic> posts=[];
+  List<FeedPost> posts=[];
   final ScrollController controller=ScrollController();
+  final _postService = PostService();
 
   @override
   void initState() {
@@ -73,38 +48,20 @@ class _MomentsState extends State<Moments>{
       isLoading=true;
       hasError=false;
     });
-    
-    String url=_selected==0? "https://api.cc98.org/me/followee/topic?from=${currentPage*pageSize}&size=$pageSize&order=$_selected":"https://api.cc98.org/topic/me/favorite?from=${currentPage*pageSize}&size=$pageSize&order=$_selected";
-    try{
-      String res=await RequestSender.simpleRequest(url);
-    if(!res.startsWith("404:")){
-      List list = json.decode(res) as List;
-      final data=list.map((e)=>Post.fromJson(e as Map<String,dynamic>)).toList();
-      final List<int> userIds = data.map((e) => e.userId).toSet().toList();
-      final portraitMap=Deserializer.parseUserPortrait(await RequestSender().getUserPortrait(userIds));
-      for (var e in data) {
-          SimpleUserInfo? user;
-          try {
-            user = portraitMap.firstWhere((u) => u.userId == e.userId);
-          } catch (_) {
-            user = null;
-          }
-          if (user != null) {
-            e.portraitUrl = user.portraitUrl;
-          }
-      }
-      setState(() {
-        users.addAll(portraitMap);
-        posts.addAll(data);
-      });
-    }
-    }catch(e){
+    final result = _selected == 0
+        ? await _postService.getMoments(currentPage * pageSize)
+        : await _postService.getFavoriteUpdates(currentPage * pageSize);
+    if (result.isError) {
       setState(() {
         hasError = true;
-        errorMessage = '加载失败: ${e.toString()}';
+        errorMessage = result.error!.message;
+        isLoading = false;
       });
-    }finally{
-      isLoading=false;
+    } else {
+      setState(() {
+        posts.addAll(result.data!);
+        isLoading = false;
+      });
     }
     
   }
@@ -219,7 +176,7 @@ class _MomentsState extends State<Moments>{
     );
   }
 
-  Widget buildPostItem(Post post) {
+  Widget buildPostItem(FeedPost post) {
   final mediaMap=post.mediaContent;//取出第一层
   final thumbNails=(mediaMap["thumbnail"] as List<dynamic>?)?.cast<String>()??<String>[];
   return Card( 

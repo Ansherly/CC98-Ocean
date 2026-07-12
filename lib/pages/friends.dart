@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:cc98_ocean/controls/clickarea.dart';
 import 'package:cc98_ocean/controls/fluent_iconbutton.dart';
 import 'package:cc98_ocean/controls/info_indicator.dart';
@@ -6,46 +5,11 @@ import 'package:cc98_ocean/controls/portrait_oval.dart';
 import 'package:cc98_ocean/controls/segmented.dart';
 import 'package:cc98_ocean/controls/status_title.dart';
 import 'package:cc98_ocean/core/constants/color_tokens.dart';
-import 'package:cc98_ocean/core/kernel.dart';
+import 'package:cc98_ocean/core/models/user.dart';
+import 'package:cc98_ocean/core/services/user_service.dart';
 import 'package:cc98_ocean/pages/profile.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
-
-class UserInfo{
-  final int id;
-  final String name;
-  final String portraitUrl;
-  final int postCount;
-  final int fanCount;
-  final String introduction;
-  UserInfo({
-    required this.id,
-    required this.name,
-    required this.portraitUrl,
-    required this.fanCount,
-    required this.postCount,
-    required this.introduction
-  });
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is UserInfo && runtimeType == other.runtimeType && id == other.id&&name==other.name;
-
-  @override
-  int get hashCode => id.hashCode;
-
-  factory UserInfo.fromJson(Map<String, dynamic> json) {
-    return UserInfo(
-      id:json["id"] as int,
-      name: json["name"] as String? ??"匿名",
-      portraitUrl: json["portraitUrl"]as String? ??"",
-      fanCount: json["fanCount"] as int? ??0,
-      postCount: json["postCount"] as int? ??0,
-      introduction: json["introduction"] as String? ??""
-    );
-  }
-}
 
 class Friends extends StatefulWidget {
   const Friends({super.key});
@@ -61,7 +25,7 @@ class _FriendsState extends State<Friends>{
   bool hasError=false;
   bool hasMore=true;
   String errorMessage="";
-  List<UserInfo> friends=[];
+  List<SimpleUserInfo> friends=[];
   final ScrollController controller = ScrollController();
 
   @override
@@ -76,34 +40,20 @@ class _FriendsState extends State<Friends>{
       isLoading = true;
       hasError = false;
     });
-    String mode=_selected==0? "follower":"followee";
-    String url="https://api.cc98.org/me/$mode?from=${currentPage*pageSize}&size=$pageSize";
-
-    try{
-      String res=await RequestSender.simpleRequest(url);
-    //获取id列表
-    if(!res.startsWith("404:")){
-      final list=json.decode(res) as List;
-      //从dynamic装箱,这是一个强制类型转换
-      final userIds=list.cast<int>();
-      String userInfoJson=await RequestSender.getUserInfo(userIds);
-      final userInfoList=json.decode(userInfoJson) as List;
-      final data=userInfoList.map((e)=>UserInfo.fromJson(e as Map<String,dynamic>)).toList();
-      setState(() {
-        friends.addAll(data);
-        hasMore=data.length==pageSize;
-        hasError=false;
-      });
-    }
-    }
-    catch(e){
+    String mode = _selected==0? "follower":"followee";
+    final result = await UserService().getFriends(mode, currentPage * pageSize);
+    if (result.isError) {
       setState(() {
         hasError = true;
-        errorMessage = '加载失败: ${e.toString()}';
+        errorMessage = result.error!.message;
+        isLoading = false;
       });
-    }finally{
+    } else {
       setState(() {
-        isLoading=false;
+        friends.addAll(result.data!);
+        hasMore = result.data!.length == pageSize;
+        hasError = false;
+        isLoading = false;
       });
     }
   }
@@ -196,7 +146,7 @@ class _FriendsState extends State<Friends>{
       ],
     ) ;
   }
-  Widget buildFriend(UserInfo info){
+  Widget buildFriend(SimpleUserInfo info){
     return Card(
       elevation: 0, 
       shape: RoundedRectangleBorder(
@@ -210,7 +160,7 @@ class _FriendsState extends State<Friends>{
               height: 36,
               width: 36,
               child: ClickArea(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context)=>Profile(userId: info.id,canEscape: true,))),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context)=>Profile(userId: info.userId,canEscape: true,))),
                 child: ClipOval(
                   child: PortraitOval(url: info.portraitUrl), 
                 ),
@@ -221,13 +171,13 @@ class _FriendsState extends State<Friends>{
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(info.name,style: const TextStyle(
+                  Text(info.userName,style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
                               color: ColorTokens.primaryLight, 
                             ),),
                   SizedBox(height: 2),
-                  Text(info.introduction==""?"该用户还没有设置简介~":info.introduction,style: const TextStyle(
+                  Text((info.introduction ?? "").isEmpty ? "该用户还没有设置简介~" : info.introduction!,style: const TextStyle(
                               color: Colors.grey,
                               fontSize: 12,
                             ),)

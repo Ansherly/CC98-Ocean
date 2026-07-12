@@ -1,4 +1,4 @@
-import 'package:cc98_ocean/core/objects.dart';
+import 'package:cc98_ocean/core/models/section.dart';
 
 abstract class ConstantItems{
   static const List<SectionInfo> sectionList = [

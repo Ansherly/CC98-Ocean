@@ -1,64 +1,13 @@
-import 'dart:convert';
-
 import 'package:cc98_ocean/controls/adaptive_divider.dart';
 import 'package:cc98_ocean/controls/info_indicator.dart';
 import 'package:cc98_ocean/controls/status_title.dart';
-import 'package:cc98_ocean/core/kernel.dart';
+import 'package:cc98_ocean/core/models/board.dart';
+import 'package:cc98_ocean/core/services/board_service.dart';
 import 'package:cc98_ocean/pages/board.dart';
 import 'package:cc98_ocean/controls/fluent_iconbutton.dart';
 import 'package:cc98_ocean/core/constants/color_tokens.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
-
-///
-class BoardInfo {
-  final int id;
-  final String name;
-  final String description;
-  final String bigPaper;
-  final List<String> boardMasters;
-  final int topicCount;
-  final int todayCount;
-
-  BoardInfo({
-    required this.id,
-    required this.name,
-    required this.description,
-    this.bigPaper="",
-    required this.boardMasters,
-    required this.todayCount,
-    required this.topicCount,
-  });
-
-  factory BoardInfo.fromJson(Map<String, dynamic> json) {
-    return BoardInfo(
-      id: json['id'] as int,
-      name: json['name'] as String,
-      description: json["description"] as String? ?? "暂无描述",
-      bigPaper: json["bigPaper"] as String? ?? "这是一个版面~",
-      todayCount: json["todayCount"] as int,
-      topicCount: json["topicCount"] as int,
-      boardMasters: (json["boardMasters"] as List<dynamic>).map((e)=>e as String).toList()
-    );
-  }
-}
-
-class Section{
-  final String name;
-  final int id;
-  final List<BoardInfo> boards;
-  Section({
-    required this.boards,
-    required this.id,
-    required this.name,
-  });
-
-  factory Section.fromJson(Map<String,dynamic> json){
-    return Section(boards: (json["boards"] as List<dynamic>).map((e)=>BoardInfo.fromJson(e as Map<String,dynamic>)).toList(), 
-    id: json["id"] as int, 
-    name: json["name"] as String);
-  }
-}
 
 class Boards extends StatefulWidget {
   const Boards({super.key});
@@ -72,7 +21,7 @@ class _BoardsState extends State<Boards>
   bool isLoading = true;
   bool hasError = false;
   String errorMessage="";
-  List<dynamic> sections=[];
+  List<BoardSection> sections=[];
 
   @override
   void initState() {
@@ -87,26 +36,23 @@ class _BoardsState extends State<Boards>
       hasError = false;
     });
 
-  const String url="https://api.cc98.org/Board/all";
-  try{
-    String res=await RequestSender.simpleRequest(url);
-  if(!res.startsWith("404:")){
-    final List<dynamic> data=json.decode(res);
-    final List<Section> newSections=data.map((e)=>Section.fromJson(e as Map<String,dynamic>)).toList();
+  final result = await BoardService().getAllBoards();
+  if (result.isError) {
     setState(() {
-        sections.addAll(newSections);
-        isLoading = false;
-      });
-  }
-  }catch(e){
+      isLoading = false;
+      hasError = true;
+      errorMessage = result.error!.message;
+    });
+  } else {
     setState(() {
-        isLoading = false;
-        hasError = true;
-        errorMessage = '加载失败: ${e.toString()}';
-      });
+      sections.addAll(result.data!);
+      isLoading = false;
+    });
   }
+    }
   
-  }
+  
+  
 
    @override
   Widget build(BuildContext context) {
@@ -149,7 +95,7 @@ class _BoardsState extends State<Boards>
 
     
   }
-  Widget buildSection(Section section){
+  Widget buildSection(BoardSection section){
     return Card(
       elevation: 0,
       surfaceTintColor: ColorTokens.softPurple,
