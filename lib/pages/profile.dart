@@ -1,15 +1,12 @@
 import 'package:cc98_ocean/controls/info_indicator.dart';
 import 'package:cc98_ocean/controls/portrait_oval.dart';
-import 'package:cc98_ocean/controls/smart_image.dart';
 import 'package:cc98_ocean/controls/status_title.dart';
 import 'package:cc98_ocean/core/models/user.dart';
 import 'package:cc98_ocean/core/models/board.dart';
 import 'package:cc98_ocean/core/services/user_service.dart';
-import 'package:cc98_ocean/core/link_definition.dart';
 import 'package:cc98_ocean/ubb_text_block/ubb_text.dart';
 import 'package:cc98_ocean/controls/clickarea.dart';
 import 'package:cc98_ocean/controls/expand_button.dart';
-import 'package:cc98_ocean/controls/extended_tags.dart';
 import 'package:cc98_ocean/controls/fluent_iconbutton.dart';
 import 'package:cc98_ocean/core/constants/color_tokens.dart';
 import 'package:cc98_ocean/pages/friends.dart';
@@ -17,8 +14,6 @@ import 'package:cc98_ocean/pages/settings.dart';
 import 'package:cc98_ocean/pages/topic.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bbcode/flutter_bbcode.dart';
-
 class Profile extends StatefulWidget {
   final int userId;
   final bool canEscape;
@@ -31,8 +26,6 @@ class _ProfileState extends State<Profile> {
   bool get wantKeepAlive => true;
   final ScrollController controller = ScrollController();
 
-  //签名档特供样式
-  late BBStylesheet extendedStyle;
   User userProfile=User(id: 0, name: "98用户", portraitUrl: "", fanCount: 0, postCount: 0, gender: 1, introduction: "", followCount: 0, popularity: 0, wealth: 0, isFollowing: false, levelTitle: "98er", signatureCode: "");
   List<StandardPost> recentTopics = [];
   bool isLoading = true;
@@ -49,35 +42,6 @@ class _ProfileState extends State<Profile> {
     super.initState();
     getUserData();
   }
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    initializeStyleSheet();
-  }
-  void initializeStyleSheet(){
-    final baseTextStyle = (Theme.of(context).textTheme.bodyMedium ??
-            const TextStyle()).copyWith(
-      wordSpacing: 1.2,
-      fontSize: 14,
-      height: 1.2,
-    );
-    extendedStyle=BBStylesheet(tags: [
-    HeightLimitedImgTag(maxHeight: 100),
-    CenterAlignTag(),
-    LeftAlignTag(),
-    RightAlignTag(),
-    UnderlineTag(),
-    StrikeTag(),
-    BoldTag(),
-    ItalicTag(),
-    UrlTag(),
-    ColorTag(),
-    TopicTag(onTap: (url)=>LinkAnalyzer.LinkClick(context,url))
-    ],
-    defaultText: baseTextStyle);
-  }
-  
-  
   // 获取用户数据
   Future<void> getUserData() async {
     setState(() {

@@ -253,8 +253,8 @@ class _MomentsState extends State<Moments>{
                       shape: RoundedRectangleBorder(side: BorderSide(color: ColorTokens.softPurple),borderRadius:BorderRadiusGeometry.circular(6)),
                       child: ClipRRect(
                         borderRadius: BorderRadiusGeometry.circular(6),
-                        child: Image(
-                              image:SmartNetworkImage(url),
+                        child: Image.network(
+                              url,
                               width: 150,
                               fit: BoxFit.contain,
                               errorBuilder: (context, error, stackTrace) =>
