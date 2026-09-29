@@ -18,9 +18,11 @@ class AuthService {
 
   AuthService._internal();
 
-  /// 初始化 SharedPreferences。应在 [main] 中调用一次。
+  /// 初始化 SharedPreferences 与令牌内存缓存。应在 [main] 中调用一次。
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+    // 从安全存储恢复令牌到内存，后续请求不再逐次读存储
+    await ApiClient.instance.restoreSession();
   }
 
   /// 判断用户是否已登录。
@@ -86,8 +88,12 @@ class AuthService {
     final accessToken = data['access_token'] as String?;
     final refreshToken = data['refresh_token'] as String?;
     if (accessToken != null && refreshToken != null) {
-      await ApiClient.instance.saveAccessToken(accessToken);
-      await ApiClient.instance.saveRefreshToken(refreshToken);
+      // 记录过期时间（expires_in − 60s 提前量），供主动刷新判断
+      await ApiClient.instance.saveSession(
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        expiresIn: (data['expires_in'] as num?)?.toInt(),
+      );
       dev.log('成功登录并保存凭据', name: '登录');
       return ApiResponse(data: true);
     }

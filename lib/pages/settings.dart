@@ -3,7 +3,10 @@ import 'dart:io';
 import 'package:cc98_ocean/controls/fluent_dialog.dart';
 import 'package:cc98_ocean/controls/fluent_iconbutton.dart';
 import 'package:cc98_ocean/core/constants/color_tokens.dart';
+import 'package:cc98_ocean/core/kernel.dart';
+import 'package:cc98_ocean/core/network/api_client.dart';
 import 'package:cc98_ocean/core/themes/setting_controller.dart';
+import 'package:cc98_ocean/pages/login.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/foundation.dart';
@@ -38,11 +41,15 @@ class _SettingsState extends State<Settings> {
         cancelText: '取消',
         confirmText: '退出',
         onCancel: () => Navigator.pop(context),
-        onConfirm: () {
+        onConfirm: () async {
+          // 清除令牌与登录标记，回到登录页
+          await ApiClient.instance.clearTokens();
+          await AuthService().setLoginStatus(false);
+          if (!context.mounted) return;
           Navigator.pop(context);
-          // 这里添加实际退出逻辑
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('已退出登录')),
+          Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const Login()),
+            (route) => false,
           );
         },
       )

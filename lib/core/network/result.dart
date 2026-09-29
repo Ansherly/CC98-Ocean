@@ -64,3 +64,15 @@ class ApiError {
   @override
   String toString() => message;
 }
+
+
+/// 无数据返回的写操作（PUT/DELETE/POST）结果。
+class ApiOutcome {
+  final bool success;
+  final String? message;
+
+  const ApiOutcome({required this.success, this.message});
+
+  factory ApiOutcome.fail(String message) =>
+      ApiOutcome(success: false, message: message);
+}

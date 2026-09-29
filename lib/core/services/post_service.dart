@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cc98_ocean/core/models/extras.dart';
 import 'package:cc98_ocean/core/network/result.dart';
 import 'package:dio/dio.dart';
 import 'package:cc98_ocean/core/models/post.dart';
@@ -105,4 +106,135 @@ class PostService {
         data: jsonEncode(body),
         options: Options(headers: {'Content-Type': 'application/json'}),
       );
+
+  // ── 收藏 ────────────────────────────────────────────
+
+  /// 主题是否已收藏（响应为裸 bool）。
+  Future<bool> isFavorite(int topicId) async {
+    try {
+      final response = await _api.get(ApiEndpoints.isFavorite(topicId));
+      return response.data == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 收藏主题到指定收藏夹。
+  Future<ApiOutcome> addIntoFavorites(int topicId, int groupId) async {
+    try {
+      final response = await _api.put(
+        ApiEndpoints.addIntoFavorites(topicId, groupId),
+        data: '',
+        options: Options(headers: {'Content-Type': 'application/json'}),
+      );
+      return ApiOutcome(success: response.statusCode == 200);
+    } catch (e) {
+      return ApiOutcome(success: false, message: e.toString());
+    }
+  }
+
+  /// 取消收藏。
+  Future<ApiOutcome> deleteFavorite(int topicId) async {
+    try {
+      final response = await _api.delete(ApiEndpoints.deleteFavoriteTopic(topicId));
+      return ApiOutcome(success: response.statusCode == 200);
+    } catch (e) {
+      return ApiOutcome(success: false, message: e.toString());
+    }
+  }
+
+  // ── 投票 ────────────────────────────────────────────
+
+  Future<ApiResponse<VoteInfo>> getVoteInfo(int topicId) => _api.getTyped(
+      ApiEndpoints.vote(topicId),
+      fromJson: (json) => VoteInfo.fromJson(json as Map<String, dynamic>));
+
+  /// 投票。响应为字符串，"1" 视为成功。
+  Future<ApiOutcome> sendVote(int topicId, List<int> items) async {
+    try {
+      final response = await _api.post(
+        ApiEndpoints.vote(topicId),
+        data: jsonEncode({'items': items}),
+        options: Options(headers: {'Content-Type': 'application/json'}),
+      );
+      final ok = response.statusCode == 200 &&
+          response.data.toString().trim() == '1';
+      return ApiOutcome(success: ok);
+    } catch (e) {
+      return ApiOutcome(success: false, message: e.toString());
+    }
+  }
+
+  // ── 风评（评分） ────────────────────────────────────
+
+  /// 风评理由列表。type: 1=加风评，2=扣风评。
+  Future<ApiResponse<List<RatingReason>>> getRatingReasons(int type) =>
+      _api.getTyped(ApiEndpoints.rateReason(type),
+          fromJson: RatingReason.listFromJson);
+
+  /// 给帖子评分（风评）。
+  Future<ApiOutcome> rate(int postId,
+      {required int reasonId, required int type}) async {
+    try {
+      final response = await _api.put(
+        ApiEndpoints.rate(postId),
+        data: jsonEncode({'reasonId': reasonId, 'type': type}),
+        options: Options(headers: {'Content-Type': 'application/json'}),
+      );
+      return ApiOutcome(success: response.statusCode == 200);
+    } catch (e) {
+      return ApiOutcome(success: false, message: e.toString());
+    }
+  }
+
+  // ── 搜索 ────────────────────────────────────────────
+
+  /// 全站搜索主题。
+  Future<ApiResponse<List<Map<String, dynamic>>>> searchTopics(
+          String keyword, int start) =>
+      _api.getTyped(
+          ApiEndpoints.searchTopic(Uri.encodeComponent(keyword), start),
+          fromJson: (json) => (json as List)
+              .map((e) => (e as Map<String, dynamic>)
+                  .cast<String, dynamic>())
+              .toList());
+
+  /// 版面内搜索主题。
+  Future<ApiResponse<List<Map<String, dynamic>>>> searchTopicsInBoard(
+          int boardId, String keyword, int start) =>
+      _api.getTyped(
+          ApiEndpoints.searchTopicInBoard(
+              boardId, Uri.encodeComponent(keyword), start),
+          fromJson: (json) => (json as List)
+              .map((e) => (e as Map<String, dynamic>)
+                  .cast<String, dynamic>())
+              .toList());
+
+  /// 批量获取主题标题。
+  Future<ApiResponse<List<BasicTopicInfo>>> getBasicTopicInfos(
+          List<int> topicIds) =>
+      _api.getTyped(
+          ApiEndpoints.basicTopicInfoList(
+              topicIds.map((id) => 'id=$id').join('&')),
+          fromJson: (json) => (json as List)
+              .whereType<Map<String, dynamic>>()
+              .map(BasicTopicInfo.fromJson)
+              .toList());
+
+  // ── 发帖 ────────────────────────────────────────────
+
+  /// 发布新主题。成功时响应为新建主题的 TopicId。
+  Future<ApiOutcome> sendNewTopic(int boardId, Map<String, dynamic> body,
+      {int? Function()? onTopicId}) async {
+    try {
+      final response = await _api.post(
+        ApiEndpoints.sendNewTopic(boardId),
+        data: jsonEncode(body),
+        options: Options(headers: {'Content-Type': 'application/json'}),
+      );
+      return ApiOutcome(success: response.statusCode == 200);
+    } catch (e) {
+      return ApiOutcome(success: false, message: e.toString());
+    }
+  }
 }

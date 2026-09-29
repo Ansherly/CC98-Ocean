@@ -10,7 +10,9 @@ import 'package:cc98_ocean/core/constants/color_tokens.dart';
 import 'package:cc98_ocean/core/models/post.dart';
 import 'package:cc98_ocean/core/models/user.dart';
 import 'package:cc98_ocean/core/services/post_service.dart';
+import 'package:cc98_ocean/core/services/user_service.dart';
 import 'package:cc98_ocean/core/helper.dart';
+import 'package:cc98_ocean/pages/editor.dart';
 import 'package:cc98_ocean/pages/profile.dart';
 import 'package:cc98_ocean/pages/topic.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
@@ -41,6 +43,14 @@ class _MomentsState extends State<Moments>{
     super.initState();
     controller.addListener(onScroll);
     getMoments();
+    getFollowees();
+  }
+
+  // 横向关注用户列表（对应 C# FocusPage 顶部的关注用户头像栏）
+  Future<void> getFollowees() async {
+    final result = await UserService().getFriends('followee', 0);
+    if (!mounted || result.isError) return;
+    setState(() => users = result.data!);
   }
 
   Future<void> getMoments()async{
@@ -82,15 +92,21 @@ class _MomentsState extends State<Moments>{
             icon: FluentIcons.arrow_sync_16_regular,
             iconColor: ColorTokens.softPurple,
             onPressed: () {
-              
+              setState(() {
+                posts.clear();
+                currentPage = 0;
+                hasMore = true;
+              });
+              getMoments();
             },
             ),
           SizedBox(width: 6),
           FluentIconbutton(
             icon: FluentIcons.edit_16_regular,
             iconColor: ColorTokens.softPurple,
-            onPressed: () {
-            },
+            tooltip: '发布新主题',
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (context) => const TopicEditorPage())),
             ),
         ],
         title: StatusTitle(title: "动态",isLoading: isLoading)

@@ -9,7 +9,7 @@ android {
     namespace = "com.example.cc98_ocean"
     compileSdk = flutter.compileSdkVersion
     buildToolsVersion = "35.0.0"
-    ndkVersion = "28.2.13676358"
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

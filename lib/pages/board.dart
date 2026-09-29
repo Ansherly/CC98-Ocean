@@ -1,5 +1,6 @@
 
 import 'package:cc98_ocean/controls/adaptive_scrollviewer.dart';
+import 'package:cc98_ocean/controls/info_flower.dart';
 import 'package:cc98_ocean/controls/info_indicator.dart';
 import 'package:cc98_ocean/controls/status_title.dart';
 import 'package:cc98_ocean/core/models/board.dart';
@@ -27,6 +28,7 @@ class _BoardState extends State<Board> with TickerProviderStateMixin
   late final Animation<double> _sizeFactor; 
   late final Animation<Offset> _slide;
   bool _showBigPaper=false;
+  bool _isPinned=false;
   bool isLoading = true;
   bool hasError = false;
   String errorMessage="";
@@ -73,7 +75,7 @@ class _BoardState extends State<Board> with TickerProviderStateMixin
   }
   
   Future<void> getTopic()async{
-    
+
     final result = await BoardService().getBoardTopics(widget.boardId, currentPage * pageSize);
     if (result.isError) {
       setState(() {
@@ -113,11 +115,12 @@ class _BoardState extends State<Board> with TickerProviderStateMixin
         titleSpacing: 8,
         actions: [
           FluentIconbutton(
-            icon: FluentIcons.pin_16_regular,
+            icon: _isPinned
+                ? FluentIcons.pin_off_16_regular
+                : FluentIcons.pin_16_regular,
             iconColor: ColorTokens.softPurple,
-            onPressed: () {
-              
-            },
+            tooltip: _isPinned ? '取消关注版面' : '关注版面',
+            onPressed: _toggleFocusBoard,
             ),
           SizedBox(width: 6),
           FluentIconbutton(
@@ -151,6 +154,24 @@ class _BoardState extends State<Board> with TickerProviderStateMixin
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  // 关注 / 取消关注版面（PUT / DELETE，与 C# BoardPage.Pin 一致）
+  Future<void> _toggleFocusBoard() async {
+    final follow = !_isPinned;
+    final result = await BoardService()
+        .editFocusBoards(widget.boardId, follow: follow);
+    if (!mounted) return;
+    if (result.success) {
+      setState(() => _isPinned = follow);
+      InfoFlower.show(context,
+          icon: FluentIcons.pin_16_regular,
+          text: follow ? '已关注' : '已取消关注');
+    } else {
+      InfoFlower.show(context,
+          icon: FluentIcons.error_circle_16_regular,
+          text: result.message ?? '操作失败');
+    }
   }
 
   Widget buildLayout(){

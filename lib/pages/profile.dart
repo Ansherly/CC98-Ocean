@@ -1,3 +1,4 @@
+import 'package:cc98_ocean/controls/info_flower.dart';
 import 'package:cc98_ocean/controls/info_indicator.dart';
 import 'package:cc98_ocean/controls/portrait_oval.dart';
 import 'package:cc98_ocean/controls/status_title.dart';
@@ -10,10 +11,12 @@ import 'package:cc98_ocean/controls/expand_button.dart';
 import 'package:cc98_ocean/controls/fluent_iconbutton.dart';
 import 'package:cc98_ocean/core/constants/color_tokens.dart';
 import 'package:cc98_ocean/pages/friends.dart';
+import 'package:cc98_ocean/pages/history.dart';
 import 'package:cc98_ocean/pages/settings.dart';
 import 'package:cc98_ocean/pages/topic.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 class Profile extends StatefulWidget {
   final int userId;
   final bool canEscape;
@@ -58,6 +61,41 @@ class _ProfileState extends State<Profile> {
     } else {
       userProfile = result.data!;
       getTopics();
+      if (widget.userId == 0) _autoSignIn();
+    }
+  }
+
+  // 进入自己主页时自动签到（与 C# ProfilePage 行为一致）
+  Future<void> _autoSignIn() async {
+    final (ok, message) = await _userService.signIn();
+    if (!mounted) return;
+    InfoFlower.show(context,
+        icon: ok
+            ? FluentIcons.checkmark_circle_16_regular
+            : FluentIcons.error_circle_16_regular,
+        text: message);
+    // 签到会改变财富值，刷新显示
+    if (ok) {
+      final result = await _userService.getUserProfile(isMe: true);
+      if (!mounted) return;
+      if (!result.isError) setState(() => userProfile = result.data!);
+    }
+  }
+
+  // 关注 / 取关当前用户
+  Future<void> _toggleFollow() async {
+    final follow = !userProfile.isFollowing;
+    final result =
+        await _userService.editFollowee(userProfile.id, follow: follow);
+    if (!mounted) return;
+    if (result.success) {
+      setState(() => userProfile = userProfile.copyWith(isFollowing: follow));
+      InfoFlower.show(context,
+          icon: FluentIcons.person_available_16_regular,
+          text: follow ? '已关注 ${userProfile.name}' : '已取消关注 ${userProfile.name}');
+    } else {
+      InfoFlower.show(context,
+          icon: FluentIcons.error_circle_16_regular, text: '操作失败');
     }
   }
   Future<void> getTopics() async {
@@ -107,6 +145,23 @@ class _ProfileState extends State<Profile> {
           ),
         ):null,
         actions: [
+          if (widget.canEscape)
+            FluentIconbutton(
+              icon: userProfile.isFollowing
+                  ? FluentIcons.person_delete_16_regular
+                  : FluentIcons.person_add_16_regular,
+              iconColor: ColorTokens.softPurple,
+              tooltip: userProfile.isFollowing ? '取消关注' : '关注',
+              onPressed: _toggleFollow,
+            ),
+          if (widget.userId == 0)
+            FluentIconbutton(
+              icon: FluentIcons.history_16_regular,
+              iconColor: ColorTokens.softPurple,
+              tooltip: '浏览历史',
+              onPressed: () => Navigator.push(
+                  context, MaterialPageRoute(builder: (context) => const HistoryPage())),
+            ),
           FluentIconbutton(icon: FluentIcons.settings_16_regular,iconColor: ColorTokens.softPurple,onPressed: () {
             Navigator.push(context, MaterialPageRoute(builder: (context)=>Settings()));
           },),
@@ -187,6 +242,10 @@ class _ProfileState extends State<Profile> {
                 ),
               ),
               ClickArea(
+                onTap: () {
+                  // 跳转到网页版个人空间
+                  launchUrl(Uri.parse('https://www.cc98.org/user/${userProfile.id}'));
+                },
                 child: Row(
                   spacing: 4,
                   children: [

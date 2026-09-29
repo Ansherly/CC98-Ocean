@@ -67,7 +67,7 @@ class _BoardsState extends State<Boards>
         automaticallyImplyLeading: false,
         titleSpacing: 8,
         actions: [
-          FluentIconbutton(icon: FluentIcons.arrow_sync_16_regular,iconColor: ColorTokens.softPurple,),
+          FluentIconbutton(icon: FluentIcons.arrow_sync_16_regular,iconColor: ColorTokens.softPurple,onPressed: getSections,),
         ],
         title: StatusTitle(title: "全部版面",isLoading: isLoading,onTap: getSections)
       ),

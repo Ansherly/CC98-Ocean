@@ -1,173 +1,101 @@
-import 'dart:io';
+import 'package:cc98_ocean/controls/app_shell.dart';
 import 'package:cc98_ocean/pages/boards.dart';
-import 'package:cc98_ocean/core/constants/color_tokens.dart';
+import 'package:cc98_ocean/pages/favorite.dart';
 import 'package:cc98_ocean/pages/discover.dart';
 import 'package:cc98_ocean/pages/focus.dart';
 import 'package:cc98_ocean/pages/index.dart';
 import 'package:cc98_ocean/pages/profile.dart';
 import 'package:cc98_ocean/pages/settings.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:sidebarx/sidebarx.dart';
+
 class Home extends StatefulWidget {
+  const Home({super.key});
+
   @override
   State<Home> createState() => _HomeState();
 }
 
-
 class _HomeState extends State<Home> {
-  late SidebarXController _controller;
-  var selectedIndex = 0; 
-  
+  // 移动端底栏使用的本地索引；桌面端由 AppShell 侧栏驱动
+  int selectedIndex = 0;
+
+  bool get _isDesktop => AppShell.isDesktop;
 
   @override
   void initState() {
     super.initState();
-
-    _controller = SidebarXController(selectedIndex: 0, extended: false);
-    _controller.addListener(_onMenuChanged);
-    
+    if (_isDesktop) {
+      // 由 Login 推入 Home 时恢复侧栏显示
+      AppShell.sidebarVisible.value = true;
+      AppShell.selectedIndex.addListener(_onShellIndexChanged);
+    }
   }
 
-  void _onMenuChanged() {
-    setState(() {
-      selectedIndex = _controller.selectedIndex;
-
-    });
+  void _onShellIndexChanged() {
+    if (mounted) setState(() {});
   }
+
   @override
   void dispose() {
-    _controller.removeListener(_onMenuChanged);
-    _controller.dispose();
+    if (_isDesktop) {
+      AppShell.selectedIndex.removeListener(_onShellIndexChanged);
+    }
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
-    Widget page;
-switch (selectedIndex) {
-  case 0:
-    page = Index();
-    break;
-  case 1:
-    page = Moments();
-    break;
-  case 2:
-    page = Discover();
-    break;
-  case 3:
-    page = Boards();
-    break;
-  case 4:
-    page=Profile(userId: 0,canEscape: false,);
-    break;
-  case 5:
-    page = Settings();
-    break;
-  default:
-    throw UnimplementedError('no widget for $selectedIndex');
-}
-    
-    return LayoutBuilder(
-      builder: (context,constraints) {
-        return Scaffold(
-          body: SafeArea(
-            child: Row(
-              children: [
-                if(!kIsWeb)if(Platform.isWindows||Platform.isLinux||Platform.isMacOS)
-                  buildSideBar(),
-                Expanded(child: page),
-              ],
-            ),
-          ),
-          bottomNavigationBar:kIsWeb?buildBottomNavigationBar():(Platform.isAndroid||Platform.isIOS)?buildBottomNavigationBar():null,
-          );
-          
-      }
-    );
-  }
-  Widget buildBottomNavigationBar(){
-    return BottomNavigationBar(
-            type: BottomNavigationBarType.fixed, 
-            onTap: (i) =>setState(() {
-              selectedIndex=i;
-            }),
-        currentIndex: selectedIndex,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(FluentIcons.design_ideas_16_regular), label: '首页',),
-          BottomNavigationBarItem(icon: Icon(FluentIcons.animal_paw_print_16_regular), label: '动态'),
-          BottomNavigationBarItem(icon: Icon(FluentIcons.leaf_one_16_regular), label: '发现'),
-          BottomNavigationBarItem(icon: Icon(FluentIcons.board_16_regular), label: '版面'),
-          BottomNavigationBarItem(icon: Icon(FluentIcons.person_16_regular), label: '我的'),]
+    if (_isDesktop) {
+      // 桌面端：侧栏在 AppShell 壳内常驻，这里只负责内容区切换
+      return Scaffold(
+        body: SafeArea(child: buildPage(AppShell.selectedIndex.value)),
       );
-  }
-  Widget buildSideBar(){
-    return SafeArea(
-      child: SidebarX(controller: _controller,items: [
-                          SidebarXItem(icon: FluentIcons.design_ideas_16_regular,label: '首页',),
-                          SidebarXItem(icon: FluentIcons.animal_paw_print_16_regular,label: '收藏'),
-                          SidebarXItem(icon: FluentIcons.leaf_one_16_regular,label: '发现'),
-                          SidebarXItem(icon: FluentIcons.board_16_regular,label: '版块'),
-                        ],
-                        extendIcon: FluentIcons.chevron_right_16_regular,
-                        collapseIcon: FluentIcons.chevron_left_16_regular,
-                        showToggleButton: MediaQuery.of(context).size.width>600,
-                        footerItems: [SidebarXItem(icon:FluentIcons.mail_all_read_20_regular,label: '我'),SidebarXItem(icon:FluentIcons.star_settings_20_regular,label: '设置'),],
-                        //展开时的主题
-                        extendedTheme: SidebarXTheme(width: 200,
-                        itemTextPadding: const EdgeInsets.only(left: 16),
-                        textStyle: TextStyle(
-                          color: ColorTokens.softPurple,
-                        ),
-                        selectedTextStyle: TextStyle(
-                          color:  ColorTokens.softOrange,
-                        ),
-                        selectedItemDecoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          color:Colors.grey.withOpacity(0.12),
-                        ),
-                        selectedItemTextPadding: const EdgeInsets.only(left: 16),
-                        margin: kIsWeb?const EdgeInsets.fromLTRB(10, 12, 10, 12):((Platform.isAndroid||Platform.isIOS)?const EdgeInsets.fromLTRB(10, 120, 10, 120):const EdgeInsets.fromLTRB(10, 12, 10, 12)),
-                        padding: const EdgeInsets.fromLTRB(0, 6, 0, 0),
-                        //此装饰作用于整个导航板
-                        decoration: BoxDecoration(    
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Colors.grey.withOpacity(0.3),
-                            width: 1,
-                        ),
-                        ),
-                        ),
-                        
-                  
-                        theme: SidebarXTheme(
-                        selectedItemMargin:EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        itemMargin: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        margin: kIsWeb?const EdgeInsets.fromLTRB(10, 12, 10, 12):((Platform.isAndroid||Platform.isIOS)?const EdgeInsets.fromLTRB(10, 120, 10, 120):const EdgeInsets.fromLTRB(10, 12, 10, 12)),
-                        padding: const EdgeInsets.fromLTRB(0, 6, 0, 0),
-                        textStyle: TextStyle(
-                          color: ColorTokens.softPurple,
-                        ),
-                        selectedItemDecoration: BoxDecoration(
-                          
-                          borderRadius: BorderRadius.circular(8),
-                          color: Colors.grey.withOpacity(0.12),
-                        ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Colors.grey.withOpacity(0.3),
-                            width: 1,
-                          ),
-                        ),
-                        width: 64,  
-                        
-                        iconTheme: const IconThemeData(color: Color.fromARGB(255, 196, 171, 212)),
-                        selectedIconTheme: const IconThemeData(color: Color.fromARGB(255, 240, 128, 128)),
-                    ),
-                      ),
+    }
+
+    // 移动端 / Web：底栏导航
+    return Scaffold(
+      body: SafeArea(child: buildPage(selectedIndex)),
+      bottomNavigationBar: buildBottomNavigationBar(),
     );
   }
-  
+
+  /// 按索引返回内容页。
+  /// 桌面侧栏：0 首页 / 1 收藏 / 2 发现 / 3 版块 / footer 4 我 / 5 设置。
+  /// 移动底栏：0 首页 / 1 动态 / 2 发现 / 3 版面 / 4 我的。
+  Widget buildPage(int index) {
+    switch (index) {
+      case 0:
+        return const Index();
+      case 1:
+        return _isDesktop ? const FavoritesPage() : const Moments();
+      case 2:
+        return const Discover();
+      case 3:
+        return const Boards();
+      case 4:
+        return const Profile(userId: 0, canEscape: false);
+      case 5:
+        return _isDesktop ? const Settings() : const Index();
+      default:
+        return const Index();
+    }
+  }
+
+  Widget buildBottomNavigationBar() {
+    return BottomNavigationBar(
+      type: BottomNavigationBarType.fixed,
+      onTap: (i) => setState(() {
+        selectedIndex = i;
+      }),
+      currentIndex: selectedIndex.clamp(0, 4),
+      items: const [
+        BottomNavigationBarItem(icon: Icon(FluentIcons.design_ideas_16_regular), label: '首页',),
+        BottomNavigationBarItem(icon: Icon(FluentIcons.animal_paw_print_16_regular), label: '动态'),
+        BottomNavigationBarItem(icon: Icon(FluentIcons.leaf_one_16_regular), label: '发现'),
+        BottomNavigationBarItem(icon: Icon(FluentIcons.board_16_regular), label: '版面'),
+        BottomNavigationBarItem(icon: Icon(FluentIcons.person_16_regular), label: '我的'),
+      ],
+    );
+  }
 }

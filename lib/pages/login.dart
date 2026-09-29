@@ -1,5 +1,6 @@
 import 'dart:developer' as dev;
 
+import 'package:cc98_ocean/controls/app_shell.dart';
 import 'package:cc98_ocean/controls/fluent_dialog.dart';
 import 'package:cc98_ocean/controls/hyperlink_button.dart';
 import 'package:cc98_ocean/controls/info_flower.dart';
@@ -21,6 +22,8 @@ class _LoginState extends State<Login> {
   @override
   void initState() {
     super.initState();
+    // 登录页不显示左侧导航（桌面端壳）
+    AppShell.sidebarVisible.value = false;
     checkState();
   }
 

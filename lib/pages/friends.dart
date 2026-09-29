@@ -1,5 +1,6 @@
 import 'package:cc98_ocean/controls/clickarea.dart';
 import 'package:cc98_ocean/controls/fluent_iconbutton.dart';
+import 'package:cc98_ocean/controls/info_flower.dart';
 import 'package:cc98_ocean/controls/info_indicator.dart';
 import 'package:cc98_ocean/controls/portrait_oval.dart';
 import 'package:cc98_ocean/controls/segmented.dart';
@@ -83,16 +84,12 @@ class _FriendsState extends State<Friends>{
             icon: FluentIcons.arrow_sync_16_regular,
             iconColor: ColorTokens.softPurple,
             onPressed: () {
-              
-            },
-            ),
-          SizedBox(width: 6),
-          FluentIconbutton(
-            icon: FluentIcons.edit_16_regular,
-            iconColor: ColorTokens.softPurple,
-            onPressed: () {
-              
-              
+              setState(() {
+                friends.clear();
+                currentPage=0;
+                hasMore=true;
+              });
+              getFriends();
             },
             ),
         ],
@@ -185,12 +182,39 @@ class _FriendsState extends State<Friends>{
                 ],
               ),
             ),
-            FluentIconbutton(icon: FluentIcons.heart_16_regular),
+            // 关注列表 → 取关；粉丝列表 → 回关
+            FluentIconbutton(
+              icon: _selected == 1
+                  ? FluentIcons.heart_16_regular
+                  : FluentIcons.heart_16_regular,
+              tooltip: _selected == 1 ? '取消关注' : '回关',
+              onPressed: () => _toggleFollow(info),
+            ),
             SizedBox(width: 20,)
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _toggleFollow(SimpleUserInfo info) async {
+    // 关注页（followee）的爱心是取消关注；粉丝页（follower）是回关
+    final result = await UserService().editFollowee(
+      info.userId,
+      follow: _selected != 1,
+    );
+    if (!mounted) return;
+    if (result.success) {
+      if (_selected == 1) {
+        setState(() => friends.removeWhere((f) => f.userId == info.userId));
+      }
+      InfoFlower.show(context,
+          icon: FluentIcons.heart_16_regular,
+          text: _selected == 1 ? '已取关用户：${info.userName}' : '已关注用户：${info.userName}');
+    } else {
+      InfoFlower.show(context,
+          icon: FluentIcons.error_circle_16_regular, text: '操作失败');
+    }
   }
   Widget buildLoadMoreIndicator(){
     return const Padding(

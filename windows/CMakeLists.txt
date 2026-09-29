@@ -32,6 +32,13 @@ set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 # Use Unicode for all projects.
 add_definitions(-DUNICODE -D_UNICODE)
 
+# MSVC 14.50+ (shipped with Visual Studio 2026) promotes the deprecated
+# <experimental/coroutine> header to a hard error (STL1011). Some plugins,
+# notably audioplayers_windows, still pull it in indirectly through C++/WinRT.
+# Silence the deprecation project-wide until those plugins migrate to the
+# standard C++20 <coroutine> header.
+add_definitions(-D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
 # Compilation settings that should be applied to most targets.
 #
 # Be cautious about adding new options here, as plugins use this function by
@@ -65,7 +72,16 @@ include(flutter/generated_plugins.cmake)
 set(BUILD_BUNDLE_DIR "$<TARGET_FILE_DIR:${BINARY_NAME}>")
 # Make the "install" step default, as it's required to run.
 set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD 1)
-if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT
+    OR CMAKE_INSTALL_PREFIX STREQUAL "C:/Program Files/${PROJECT_NAME}")
+  # CMake only reports CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT on the very
+  # first configure of a build tree. If that run aborts before reaching this
+  # point -- for example while a plugin such as media_kit_libs_windows_video is
+  # still downloading its pre-built binaries (see the include() above) -- the
+  # default prefix has already been written to the cache, the flag stays false
+  # forever, and the install step would keep trying to write into
+  # "C:/Program Files/<app>". Treat the stock default as unset so the build tree
+  # stays recoverable.
   set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}" CACHE PATH "..." FORCE)
 endif()
 

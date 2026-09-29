@@ -177,6 +177,14 @@ class ApiEndpoints {
   static String addIntoFavorites(int topicId, int groupId) =>
       '$_base/me/favorite/$topicId?groupid=$groupId';
 
+  /// 取消收藏
+  static String deleteFavoriteTopic(int topicId) =>
+      '$_base/me/favorite/$topicId';
+
+  /// 版面内搜索（keyword 需 UrlEncode）
+  static String searchTopicInBoard(int boardId, String key, int start) =>
+      '$_base/topic/search/board/$boardId?keyword=$key&from=$start&size=20';
+
   /// 批量获取帖子基本信息
   static String basicTopicInfoList(String param) => '$_base/topic/basic?$param';
 

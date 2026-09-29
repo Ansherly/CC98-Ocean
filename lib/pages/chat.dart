@@ -26,8 +26,34 @@ class _ChatState extends State<Chat> {
   bool isLoading=false;
   bool hasError=false;
   String errorMessage="";
-  void _sendMessage() {
-}
+  bool _isSending = false;
+
+  Future<void> _sendMessage() async {
+    final content = _controller.text.trim();
+    if (content.isEmpty) return;
+    setState(() => _isSending = true);
+    final result =
+        await _userService.sendPrivateMessage(widget.senderId, content);
+    if (!mounted) return;
+    setState(() => _isSending = false);
+    if (result.success) {
+      _controller.clear();
+      // 本地回显：senderId 与对方不同即渲染为"我"的气泡
+      setState(() {
+        messages.insert(
+          0,
+          ChatMessage(
+              content: content,
+              id: 0,
+              senderId: -1,
+              time: DateTime.now().toIso8601String()),
+        );
+      });
+    } else {
+      InfoFlower.show(context,
+          icon: FluentIcons.error_circle_16_regular, text: '发送失败，请重试');
+    }
+  }
   @override
   void initState(){
     super.initState();
@@ -198,7 +224,12 @@ class _ChatState extends State<Chat> {
                      ),
                   ),
                 
-                FluentIconbutton(icon: FluentIcons.send_16_regular,onPressed: () => _sendMessage(),)
+                FluentIconbutton(
+                  icon: _isSending
+                      ? FluentIcons.arrow_clockwise_16_regular
+                      : FluentIcons.send_16_regular,
+                  onPressed: _isSending ? null : () => _sendMessage(),
+                )
               ],
             ),
           );

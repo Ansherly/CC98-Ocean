@@ -1,3 +1,4 @@
+import 'package:cc98_ocean/controls/clickarea.dart';
 import 'package:cc98_ocean/controls/fluent_iconbutton.dart';
 import 'package:cc98_ocean/controls/info_indicator.dart';
 import 'package:cc98_ocean/controls/pivot.dart';
@@ -8,10 +9,12 @@ import 'package:cc98_ocean/core/constants/color_tokens.dart';
 import 'package:cc98_ocean/core/constants/section_info.dart';
 import 'package:cc98_ocean/core/models/post.dart';
 import 'package:cc98_ocean/core/models/section.dart';
-import 'package:cc98_ocean/core/network/result.dart';
 import 'package:cc98_ocean/core/services/post_service.dart';
 import 'package:cc98_ocean/core/services/user_service.dart';
+import 'package:cc98_ocean/pages/game.dart';
 import 'package:cc98_ocean/pages/mailbox.dart';
+import 'package:cc98_ocean/pages/search.dart';
+import 'package:cc98_ocean/pages/topic.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 
@@ -115,8 +118,22 @@ class _IndexState extends State<Index> {
         spacing: 10,
         children: [
           FlutterLogo(),
-          Expanded(child: SimpleCapsuleSearchBar(hintText: "CC98,My home")),
-          FluentIconbutton(icon: FluentIcons.gift_open_16_regular),
+          Expanded(
+            child: SimpleCapsuleSearchBar(
+              hintText: "CC98,My home",
+              onSubmitted: (keyword) => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => SearchPage(keyword: keyword)),
+              ),
+            ),
+          ),
+          FluentIconbutton(
+            icon: FluentIcons.gift_open_16_regular,
+            tooltip: '抽卡小屋',
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (context) => const GamePage())),
+          ),
           FluentIconbutton(
             icon: FluentIcons.mail_16_regular,
             onPressed: () {
@@ -177,49 +194,55 @@ class _IndexState extends State<Index> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Column(
-          spacing: 8,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  spacing: 4,
-                  children: [
-                    PortraitOval(url: post.portraitUrl),
-                    Text(post.authorName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: ColorTokens.softPink,
-                        )),
-                  ],
-                ),
-                if (post.boardName.isNotEmpty)
-                  TextTagBox(
-                    text: post.boardName,
-                    backgroundColor:
-                        Theme.of(context).colorScheme.secondaryContainer,
-                    borderRadius: 4,
-                    textColor: Theme.of(context).primaryColor,
-                    textStyle: TextStyle(fontSize: 12),
+      child: ClickArea(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => Topic(topicId: post.id)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Column(
+            spacing: 8,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: 4,
+                    children: [
+                      PortraitOval(url: post.portraitUrl),
+                      Text(post.authorName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: ColorTokens.softPink,
+                          )),
+                    ],
                   ),
-              ],
-            ),
-            Text(post.title, maxLines: 1),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text("${post.replyCount}回复·${post.hitCount}浏览",
-                    style:
-                        TextStyle(fontSize: 12, color: ColorTokens.softGrey)),
-              ],
-            ),
-          ],
+                  if (post.boardName.isNotEmpty)
+                    TextTagBox(
+                      text: post.boardName,
+                      backgroundColor:
+                          Theme.of(context).colorScheme.secondaryContainer,
+                      borderRadius: 4,
+                      textColor: Theme.of(context).primaryColor,
+                      textStyle: TextStyle(fontSize: 12),
+                    ),
+                ],
+              ),
+              Text(post.title, maxLines: 1),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("${post.replyCount}回复·${post.hitCount}浏览",
+                      style:
+                          TextStyle(fontSize: 12, color: ColorTokens.softGrey)),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
