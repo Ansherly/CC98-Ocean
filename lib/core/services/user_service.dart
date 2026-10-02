@@ -164,20 +164,30 @@ class UserService {
 
   /// 每日签到。成功时响应为获得的财富值数字；
   /// 重复签到返回 400 "has_signed_in_today"。
-  Future<(bool ok, String message)> signIn() async {
+  Future<SignInResult> signIn() async {
     try {
       final response = await _api.post(ApiEndpoints.signIn,
           data: '', options: _jsonEmpty);
-      final wealth = response.data is num ? (response.data as num).toInt() : null;
-      return (true, wealth != null ? '签到成功，获得财富值：$wealth' : '签到成功');
+      final wealth =
+          response.data is num ? (response.data as num).toInt() : null;
+      return SignInResult(
+        status: SignInStatus.success,
+        wealth: wealth,
+        message: wealth != null ? '签到成功，获得财富值：$wealth' : '签到成功',
+      );
     } on DioException catch (e) {
       final body = e.response?.data?.toString() ?? '';
-      if (e.response?.statusCode == 400 && body.contains('has_signed_in_today')) {
-        return (true, '今日已签到');
+      if (e.response?.statusCode == 400 &&
+          body.contains('has_signed_in_today')) {
+        // 今日已签到：视为已签到状态，但不提示
+        return const SignInResult(
+            status: SignInStatus.alreadySigned, message: '今日已签到');
       }
-      return (false, body.isNotEmpty ? '签到失败：$body' : '签到失败');
+      return SignInResult(
+          status: SignInStatus.failed,
+          message: body.isNotEmpty ? '签到失败：$body' : '签到失败');
     } catch (_) {
-      return (false, '签到失败');
+      return const SignInResult(status: SignInStatus.failed, message: '签到失败');
     }
   }
 
@@ -211,4 +221,25 @@ class UserService {
   Future<ApiOutcome> enableBrowseHistory(bool enabled) =>
       _write(() => _api.put(ApiEndpoints.enableBrowseHistory(enabled),
           data: '', options: _jsonEmpty));
+}
+
+/// 签到结果状态。
+enum SignInStatus { success, alreadySigned, failed }
+
+/// 签到结果：区分"本次签到成功""今日已签到""失败"。
+class SignInResult {
+  final SignInStatus status;
+
+  /// 本次签到获得的财富值（alreadySigned / failed 时为 null）。
+  final int? wealth;
+  final String message;
+
+  const SignInResult({
+    required this.status,
+    this.wealth,
+    required this.message,
+  });
+
+  bool get isSuccess => status == SignInStatus.success;
+  bool get isAlreadySigned => status == SignInStatus.alreadySigned;
 }

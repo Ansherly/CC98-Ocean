@@ -1,5 +1,6 @@
 import 'package:cc98_ocean/controls/clickarea.dart';
 import 'package:cc98_ocean/controls/fluent_dialog.dart';
+import 'package:cc98_ocean/controls/fluent_filter_chip.dart';
 import 'package:cc98_ocean/controls/fluent_iconbutton.dart';
 import 'package:cc98_ocean/controls/info_flower.dart';
 import 'package:cc98_ocean/controls/info_indicator.dart';
@@ -137,15 +138,11 @@ class _FavoritesPageState extends State<FavoritesPage> {
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 48,
+        // 与发现页一致的标题形式：无返回按钮、标题居中、点击刷新
+        automaticallyImplyLeading: false,
+        centerTitle: true,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         actionsPadding: const EdgeInsets.only(right: 13),
-        leading: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: FluentIconbutton(
-            icon: FluentIcons.chevron_left_16_regular,
-            onPressed: () => Navigator.maybePop(context),
-          ),
-        ),
         actions: [
           Tooltip(
             message: order == 0 ? '按发布时间排序' : '按最后回复排序',
@@ -166,7 +163,14 @@ class _FavoritesPageState extends State<FavoritesPage> {
             },
           ),
         ],
-        title: StatusTitle(title: '收藏', isLoading: isLoading, onTap: _loadTopics),
+        title: StatusTitle(
+          title: '收藏',
+          isLoading: isLoading,
+          onTap: () {
+            // 标题点击刷新：重新拉取收藏夹与当前列表
+            _loadGroups();
+          },
+        ),
       ),
       body: buildLayout(),
     );
@@ -192,29 +196,17 @@ class _FavoritesPageState extends State<FavoritesPage> {
   }
 
   Widget buildGroupChips() {
-    return SizedBox(
-      height: 48,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        children: [
-          for (final g in groups)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(g.name),
-                selected: g.id == selectedGroupId,
-                selectedColor:
-                    Theme.of(context).colorScheme.primaryContainer,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6)),
-                onSelected: (_) {
-                  setState(() => selectedGroupId = g.id);
-                  _loadTopics();
-                },
-              ),
-            ),
-        ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: FluentFilterChipGroup<FavoriteGroup>(
+        items: groups,
+        labelOf: (g) => g.name,
+        isSelected: (g) => g.id == selectedGroupId,
+        accentColor: Theme.of(context).colorScheme.primary,
+        onSelected: (g) {
+          setState(() => selectedGroupId = g.id);
+          _loadTopics();
+        },
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:highlight/highlight.dart' as hl;
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:cc98_ocean/controls/markdown_view.dart';
 
@@ -82,8 +83,8 @@ String collectText(UbbNode node) {
   return sb.toString().trim();
 }
 
-/// 链接统一样式（颜色 + 可选下划线），所有链接类策略共用。
-TextStyle linkStyle(UbbRenderContext ctx, {bool underline = true}) {
+/// 链接统一样式（仅强调色区分，无下划线），所有链接类策略共用。
+TextStyle linkStyle(UbbRenderContext ctx, {bool underline = false}) {
   return TextStyle(
     color: ctx.config.linkColor,
     decoration: underline ? TextDecoration.underline : TextDecoration.none,
@@ -507,6 +508,9 @@ void _renderCode(UbbNode node, UbbRenderContext ctx) {
       ctx.config.codeBackground ?? UbbRenderConfig.fill(foreground, 0x1F);
   final code = collectText(node);
 
+  final spans = _codeSpans(code, languageName, ctx.config.brightness,
+      ctx.config.baseStyle.fontSize);
+
   ctx.addToContainer(Container(
     width: double.infinity,
     padding: const EdgeInsets.all(12),
@@ -531,17 +535,137 @@ void _renderCode(UbbNode node, UbbRenderContext ctx) {
               ),
             ),
           ),
-        SelectableText(
-          code,
-          style: TextStyle(
-            fontFamily: 'monospace',
-            fontSize: ctx.config.baseStyle.fontSize,
-            color: ctx.config.baseStyle.color,
+        // 代码不折行：宽度超出代码块时左右滚动查看
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          // Clamping + 桌面鼠标拖拽：与 Pivot 标签栏一致的滚动体验
+          physics: const ClampingScrollPhysics(),
+          child: SelectableText.rich(
+            TextSpan(style: ctx.config.baseStyle, children: spans),
           ),
         ),
       ],
     ),
   ));
+}
+
+// ── 代码高亮（highlight.js 的 Dart 移植） ──────────────
+
+/// 等宽字体栈：Windows 用 Consolas/Cascadia，macOS 用 Menlo，
+/// Android 回落系统 monospace。
+const String _monoFont = 'Consolas';
+const List<String> _monoFontFallback = [
+  'Cascadia Mono',
+  'Menlo',
+  'Courier New',
+  'monospace',
+];
+
+/// 明/暗两套关键字配色（One Light / One Dark 简化版）。
+const Map<String, Color> _codePaletteLight = {
+  'root': Color(0xFF383A42),
+  'keyword': Color(0xFFA626A4),
+  'string': Color(0xFF50A14F),
+  'comment': Color(0xFFA0A1A7),
+  'number': Color(0xFFC18401),
+  'literal': Color(0xFFC18401),
+  'title': Color(0xFF4078F2),
+  'attr': Color(0xFF986801),
+  'built_in': Color(0xFF0184BC),
+  'symbol': Color(0xFF4078F2),
+  'meta': Color(0xFF4078F2),
+  'type': Color(0xFF0184BC),
+};
+
+const Map<String, Color> _codePaletteDark = {
+  'root': Color(0xFFABB2BF),
+  'keyword': Color(0xFFC678DD),
+  'string': Color(0xFF98C379),
+  'comment': Color(0xFF7F848E),
+  'number': Color(0xFFD19A66),
+  'literal': Color(0xFFD19A66),
+  'title': Color(0xFF61AFEF),
+  'attr': Color(0xFFD19A66),
+  'built_in': Color(0xFF56B6C2),
+  'symbol': Color(0xFF61AFEF),
+  'meta': Color(0xFF61AFEF),
+  'type': Color(0xFF56B6C2),
+};
+
+/// 常见语言别名归一（highlight.js 注册名）。
+String _normalizeCodeLanguage(String name) {
+  const aliases = {
+    'js': 'javascript',
+    'ts': 'typescript',
+    'cs': 'csharp',
+    'c#': 'csharp',
+    'py': 'python',
+    'c++': 'cpp',
+    'sh': 'bash',
+    'shell': 'bash',
+    'html': 'xml',
+    'golang': 'go',
+    'kotlin': 'kotlin',
+  };
+  final key = name.trim().toLowerCase();
+  return aliases[key] ?? key;
+}
+
+/// 生成代码高亮 span。语言未标注 / 无法解析时回落为纯文本单 span。
+List<TextSpan> _codeSpans(
+    String code, String language, Brightness brightness, double? fontSize) {
+  TextStyle rootStyle() => TextStyle(
+        color: (brightness == Brightness.dark
+                ? _codePaletteDark
+                : _codePaletteLight)['root'],
+        fontSize: fontSize,
+        fontFamily: _monoFont,
+        fontFamilyFallback: _monoFontFallback,
+      );
+
+  if (language.trim().isEmpty) {
+    return [TextSpan(text: code, style: rootStyle())];
+  }
+  try {
+    final result = hl.highlight
+        .parse(code, language: _normalizeCodeLanguage(language));
+    final spans = <TextSpan>[];
+    for (final node in result.nodes ?? const <hl.Node>[]) {
+      _collectCodeNode(node, rootStyle(), brightness, spans);
+    }
+    return spans.isNotEmpty ? spans : [TextSpan(text: code, style: rootStyle())];
+  } catch (_) {
+    // 语言未注册或解析异常：整段按纯文本渲染
+    return [TextSpan(text: code, style: rootStyle())];
+  }
+}
+
+void _collectCodeNode(
+    hl.Node node, TextStyle parent, Brightness brightness, List<TextSpan> out) {
+  var style = parent;
+  final cls = node.className;
+  if (cls != null && cls.isNotEmpty) {
+    final palette =
+        brightness == Brightness.dark ? _codePaletteDark : _codePaletteLight;
+    for (final token in cls.split(' ')) {
+      final color = palette[token];
+      if (color != null) {
+        style = style.copyWith(color: color);
+        break;
+      }
+    }
+  }
+  final children = node.children;
+  if (children == null || children.isEmpty) {
+    final value = node.value;
+    if (value != null && value.isNotEmpty) {
+      out.add(TextSpan(text: value, style: style));
+    }
+    return;
+  }
+  for (final child in children) {
+    _collectCodeNode(child, style, brightness, out);
+  }
 }
 
 // ── 段落 / 对齐 ──────────────────────────────────────
@@ -904,15 +1028,43 @@ void _renderLatex(UbbNode node, UbbRenderContext ctx) {
     final codeText = collectText(node);
     ctx.addToContainer(Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Math.tex(
-        codeText,
-        mathStyle: MathStyle.display,
-        textStyle: const TextStyle(fontSize: 14),
-        onErrorFallback: (error) => Text(error.message,
-            style: const TextStyle(color: Colors.red, fontSize: 12)),
-      ),
+      child: _buildLatexBlock(codeText),
     ));
   }
+}
+
+/// 块级公式：TeX 语法把换行当空白（两行公式会并到一行），
+/// 因此按换行拆分、逐行渲染为独立的 display 公式。
+Widget _buildLatexBlock(String code) {
+  // 按换行符拆分（TeX 语法把换行当空白，不拆会导致多行公式并到一行）
+  final lines =
+      code.split('\n').map((line) => line.trim()).where((line) => line.isNotEmpty).toList();
+  if (lines.length <= 1) {
+    return Math.tex(
+      code,
+      mathStyle: MathStyle.display,
+      textStyle: const TextStyle(fontSize: 14),
+      onErrorFallback: (error) => Text(error.message,
+          style: const TextStyle(color: Colors.red, fontSize: 12)),
+    );
+  }
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: [
+      for (final line in lines)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Math.tex(
+            line,
+            mathStyle: MathStyle.display,
+            textStyle: const TextStyle(fontSize: 14),
+            onErrorFallback: (error) => Text(error.message,
+                style: const TextStyle(color: Colors.red, fontSize: 12)),
+          ),
+        ),
+    ],
+  );
 }
 
 // ── Markdown ─────────────────────────────────────────

@@ -9,6 +9,7 @@ import 'package:cc98_ocean/core/constants/color_tokens.dart';
 import 'package:cc98_ocean/core/models/user.dart';
 import 'package:cc98_ocean/core/services/user_service.dart';
 import 'package:cc98_ocean/pages/profile.dart';
+import 'package:cc98_ocean/pages/user_space.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 
@@ -157,7 +158,7 @@ class _FriendsState extends State<Friends>{
               height: 36,
               width: 36,
               child: ClickArea(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context)=>Profile(userId: info.userId,canEscape: true,))),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context)=>UserSpacePage(userId: info.userId))),
                 child: ClipOval(
                   child: PortraitOval(url: info.portraitUrl), 
                 ),

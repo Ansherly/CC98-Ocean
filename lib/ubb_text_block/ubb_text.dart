@@ -78,6 +78,7 @@ class _UbbTextState extends State<UbbText> {
       imageMaxHeight: style.imageMaxHeight,
       hideImage: style.hideImage,
       autoLink: style.autoLink,
+      brightness: Theme.of(context).brightness,
       onMediaTap: _handleMedia,
     );
 

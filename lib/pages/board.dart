@@ -1,5 +1,4 @@
 
-import 'package:cc98_ocean/controls/adaptive_scrollviewer.dart';
 import 'package:cc98_ocean/controls/info_flower.dart';
 import 'package:cc98_ocean/controls/info_indicator.dart';
 import 'package:cc98_ocean/controls/status_title.dart';
@@ -22,12 +21,10 @@ class Board extends StatefulWidget {
   State<Board> createState() => _BoardState();
 }
 
-class _BoardState extends State<Board> with TickerProviderStateMixin
+class _BoardState extends State<Board>
 {
-  late final AnimationController _controller;
-  late final Animation<double> _sizeFactor; 
-  late final Animation<Offset> _slide;
-  bool _showBigPaper=false;
+  /// 用于打开版面通告的 endDrawer
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isPinned=false;
   bool isLoading = true;
   bool hasError = false;
@@ -36,20 +33,12 @@ class _BoardState extends State<Board> with TickerProviderStateMixin
   List<StandardPost> posts=[];
   int currentPage=0;
   int pageSize=20;
-  
+
 
   @override
   void initState() {
     super.initState();
     getMetaData();
-     _controller = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,                          // ← 合法
-    );
-    _slide = Tween<Offset>(begin: const Offset(0, -1), end: Offset.zero)
-      .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-  _sizeFactor = Tween<double>(begin: 0, end: 1)
-      .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
   }
 
   Future<void> getMetaData()async{
@@ -96,6 +85,8 @@ class _BoardState extends State<Board> with TickerProviderStateMixin
    @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
+      endDrawer: buildBigPaperDrawer(),
       appBar: AppBar(
         toolbarHeight: 48,
         shape: RoundedRectangleBorder(
@@ -126,10 +117,8 @@ class _BoardState extends State<Board> with TickerProviderStateMixin
           FluentIconbutton(
             icon: FluentIcons.slide_text_16_regular,
             iconColor: ColorTokens.softPurple,
-            onPressed: () {
-              setState(() => _showBigPaper = !_showBigPaper);
-              _showBigPaper? _controller.forward(): _controller.reverse();
-            },
+            tooltip: '版面通告',
+            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
             ),
         ],
         title: StatusTitle(title:isLoading?"加载中···":data.name,isLoading: isLoading,onTap:getMetaData)
@@ -148,12 +137,6 @@ class _BoardState extends State<Board> with TickerProviderStateMixin
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 
   // 关注 / 取消关注版面（PUT / DELETE，与 C# BoardPage.Pin 一致）
@@ -180,44 +163,58 @@ class _BoardState extends State<Board> with TickerProviderStateMixin
     if(hasError)return ErrorIndicator(icon: FluentIcons.music_note_2_16_regular, info: errorMessage,onTapped: getTopic);
     return Padding(
       padding: const EdgeInsets.all(8.0),
-      child:Column(
-        children: [
-          if (_showBigPaper || _controller.value > 0)
-          SizeTransition(                 // ← 高度 0↔1
-      sizeFactor: _sizeFactor,
-      axisAlignment: -1,            // 从顶部开始展开
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 300),
-        child: SlideTransition(       // ← 滑动 -1↔0
-          position: _slide,
-          child: buildBigPaper(),     // 真正内容
+      child: buildTopicList(posts),
+    );
+  }
+
+  /// 版面通告：从右侧滑出的面板（竖直可滚动），右上角 × 关闭。
+  Widget buildBigPaperDrawer() {
+    final bigPaper = isLoading ? '' : data.bigPaper;
+    final theme = Theme.of(context);
+    return Drawer(
+      backgroundColor: theme.colorScheme.surface,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 面板头：标题 + 关闭按钮
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+              child: Row(
+                children: [
+                  const Icon(FluentIcons.slide_text_16_regular,
+                      size: 18, color: ColorTokens.softPurple),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text('版面通告',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                  FluentIconbutton(
+                    icon: FluentIcons.dismiss_16_regular,
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.maybePop(context),
+                  ),
+                ],
+              ),
+            ),
+            Divider(
+                height: 1,
+                thickness: 1,
+                color: theme.dividerColor.withOpacity(0.6)),
+            // 通告内容：竖直可滚动
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(12),
+                child: UbbText(data: bigPaper),
+              ),
+            ),
+          ],
         ),
       ),
-    ),
-
-          buildTopicList(posts),
-          
-        ],
-      ),
     );
   }
-  
-  Widget buildBigPaper(){
-    final bigPaper=isLoading?"":data.bigPaper;
-    double maxHeight=MediaQuery.of(context).size.height*0.4;
 
-    return AdaptiveScrollView(
-      maxHeight: maxHeight,
-      child: Card(
-        elevation: 0,
-        color: ColorTokens.dividerBlue,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadiusGeometry.circular(8)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12,vertical: 8),
-          child: UbbText(data: bigPaper),
-        )),
-    );
-  }
   Widget buildTopicList(List<StandardPost> posts){
     if (hasError) {
       return Center(

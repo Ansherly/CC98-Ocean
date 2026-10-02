@@ -14,6 +14,7 @@ import 'package:cc98_ocean/core/services/user_service.dart';
 import 'package:cc98_ocean/core/helper.dart';
 import 'package:cc98_ocean/pages/editor.dart';
 import 'package:cc98_ocean/pages/profile.dart';
+import 'package:cc98_ocean/pages/user_space.dart';
 import 'package:cc98_ocean/pages/topic.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
@@ -81,6 +82,7 @@ class _MomentsState extends State<Moments>{
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 48,
+        automaticallyImplyLeading: false,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(6),
         ),       
@@ -88,19 +90,7 @@ class _MomentsState extends State<Moments>{
         centerTitle: true,
         titleSpacing: 8,
         actions: [
-          FluentIconbutton(
-            icon: FluentIcons.arrow_sync_16_regular,
-            iconColor: ColorTokens.softPurple,
-            onPressed: () {
-              setState(() {
-                posts.clear();
-                currentPage = 0;
-                hasMore = true;
-              });
-              getMoments();
-            },
-            ),
-          SizedBox(width: 6),
+          // 刷新按钮已移除：标题可点击刷新
           FluentIconbutton(
             icon: FluentIcons.edit_16_regular,
             iconColor: ColorTokens.softPurple,
@@ -109,7 +99,19 @@ class _MomentsState extends State<Moments>{
                 MaterialPageRoute(builder: (context) => const TopicEditorPage())),
             ),
         ],
-        title: StatusTitle(title: "动态",isLoading: isLoading)
+        // 与发现页一致：标题居中、点击刷新
+        title: StatusTitle(
+          title: "动态",
+          isLoading: isLoading,
+          onTap: () {
+            setState(() {
+              posts.clear();
+              currentPage = 0;
+              hasMore = true;
+            });
+            getMoments();
+          },
+        ),
       ),
       body:buildLayout(),
     );
@@ -178,7 +180,7 @@ class _MomentsState extends State<Moments>{
         Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => Profile(userId: info.userId,canEscape: true,),
+              builder: (context) => UserSpacePage(userId: info.userId),
             ),
           );
       },

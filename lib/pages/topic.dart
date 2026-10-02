@@ -12,6 +12,7 @@ import 'package:cc98_ocean/controls/portrait_oval.dart';
 import 'package:cc98_ocean/controls/segmented.dart';
 import 'package:cc98_ocean/controls/status_title.dart';
 import 'package:cc98_ocean/controls/vote_panel.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'package:cc98_ocean/core/constants/color_tokens.dart';
 import 'package:cc98_ocean/core/link_definition.dart';
@@ -23,6 +24,7 @@ import 'package:cc98_ocean/ubb_text_block/ubb_text.dart';
 import 'package:cc98_ocean/core/themes/setting_controller.dart';
 import 'package:cc98_ocean/core/helper.dart';
 import 'package:cc98_ocean/pages/profile.dart';
+import 'package:cc98_ocean/pages/user_space.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -196,8 +198,8 @@ class _TopicState extends State<Topic> {
           FluentIconbutton(
             icon: FluentIcons.share_16_regular,
             iconColor: ColorTokens.softPurple,
-            tooltip: '复制链接',
-            onPressed: _shareTopic,
+            tooltip: '分享',
+            onPressed: _shareToSystem,
           ),
           SizedBox(width: 6),
           FluentMenuButton(
@@ -371,7 +373,7 @@ class _TopicState extends State<Topic> {
                       context,
                       MaterialPageRoute(
                           builder: (context) =>
-                              Profile(userId: reply.userId, canEscape: true))),
+                              UserSpacePage(userId: reply.userId))),
                   child: PortraitOval(url: reply.portraitUrl),
                 ),
                 const SizedBox(width: 12),
@@ -654,6 +656,28 @@ class _TopicState extends State<Topic> {
   }
 
   // ── 收藏 / 分享 ─────────────────────────────────────
+
+  /// 构造分享文本：「来自CC98的分享：[{标题}]-{链接}」
+  String _shareText() {
+    final title = (topicDetail?['title'] as String?) ?? 'CC98 主题';
+    return '来自CC98的分享：[$title]-https://www.cc98.org/topic/$_topicId';
+  }
+
+  /// 顶部分享按钮：移动端调起系统分享界面（QQ/微信等），
+  /// 桌面端无系统分享面板，回落为复制到剪贴板。
+  Future<void> _shareToSystem() async {
+    final text = _shareText();
+    final isMobile = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
+    if (isMobile) {
+      await SharePlus.instance.share(
+        ShareParams(text: text, subject: 'CC98 分享', title: 'CC98 分享'),
+      );
+      return;
+    }
+    _shareTopic();
+  }
 
   void _shareTopic() {
     Clipboard.setData(ClipboardData(text: 'https://www.cc98.org/topic/${_topicId}'));

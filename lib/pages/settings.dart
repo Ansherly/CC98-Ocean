@@ -142,6 +142,14 @@ class _SettingsState extends State<Settings> {
         ),       
         actionsPadding: EdgeInsets.only(right: 13),
         centerTitle: true,
+        // 用 Fluent chevron 返回按钮替换 Material 默认返回箭头
+        leading: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: FluentIconbutton(
+            icon: FluentIcons.chevron_left_16_regular,
+            onPressed: () => Navigator.maybePop(context),
+          ),
+        ),
         actions: [
           FluentIconbutton(icon: FluentIcons.more_horizontal_16_regular,iconColor: ColorTokens.softPurple,),
         ],

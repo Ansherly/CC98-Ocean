@@ -6,6 +6,7 @@ import 'package:cc98_ocean/core/constants/color_tokens.dart';
 import 'package:cc98_ocean/core/models/message.dart';
 import 'package:cc98_ocean/core/services/user_service.dart';
 import 'package:cc98_ocean/pages/profile.dart';
+import 'package:cc98_ocean/pages/user_space.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 class Chat extends StatefulWidget {
@@ -107,7 +108,7 @@ class _ChatState extends State<Chat> {
             getChatHistory();
           }),
           FluentIconbutton(icon: FluentIcons.person_16_regular,iconColor: ColorTokens.softPurple,onPressed: () {
-            Navigator.push(context, MaterialPageRoute(builder: (context)=>Profile(userId: widget.senderId, canEscape: true)));
+            Navigator.push(context, MaterialPageRoute(builder: (context)=>UserSpacePage(userId: widget.senderId)));
           },)
         ],
         title: StatusTitle(title: widget.senderName,isLoading: isLoading,onTap:() {

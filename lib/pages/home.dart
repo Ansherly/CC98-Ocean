@@ -61,21 +61,27 @@ class _HomeState extends State<Home> {
   }
 
   /// 按索引返回内容页。
-  /// 桌面侧栏：0 首页 / 1 收藏 / 2 发现 / 3 版块 / footer 4 我 / 5 设置。
+  /// 桌面侧栏：0 首页 / 1 动态 / 2 收藏 / 3 发现 / 4 版块 / footer 5 我 / 6 设置。
   /// 移动底栏：0 首页 / 1 动态 / 2 发现 / 3 版面 / 4 我的。
   Widget buildPage(int index) {
     switch (index) {
       case 0:
         return const Index();
       case 1:
-        return _isDesktop ? const FavoritesPage() : const Moments();
+        return const Moments();
       case 2:
-        return const Discover();
+        return _isDesktop ? const FavoritesPage() : const Discover();
       case 3:
-        return const Boards();
+        return _isDesktop ? const Discover() : const Boards();
       case 4:
-        return const Profile(userId: 0, canEscape: false);
+        return _isDesktop
+            ? const Boards()
+            : const Profile();
       case 5:
+        return _isDesktop
+            ? const Profile()
+            : const Index();
+      case 6:
         return _isDesktop ? const Settings() : const Index();
       default:
         return const Index();

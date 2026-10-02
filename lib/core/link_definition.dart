@@ -6,6 +6,7 @@ import 'package:cc98_ocean/core/network/api_endpoints.dart';
 import 'package:cc98_ocean/core/services/user_service.dart';
 import 'package:cc98_ocean/pages/board.dart';
 import 'package:cc98_ocean/pages/profile.dart';
+import 'package:cc98_ocean/pages/user_space.dart';
 import 'package:cc98_ocean/pages/topic.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
@@ -160,8 +161,8 @@ class LinkNavigator {
         Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (_) => Profile(
-                    userId: target.userId, canEscape: true)));
+                builder: (_) => UserSpacePage(
+                    userId: target.userId)));
         return;
       case LinkTargetType.userName:
         await _navigateToUserByName(context, target.userName);
@@ -194,7 +195,7 @@ class LinkNavigator {
     Navigator.push(
         context,
         MaterialPageRoute(
-            builder: (_) => Profile(userId: user.userId, canEscape: true)));
+            builder: (_) => UserSpacePage(userId: user.userId)));
   }
 
   /// 外链处理：复制到剪贴板并提示。

@@ -21,6 +21,9 @@ class UbbRenderConfig {
   /// 链接颜色，默认 CC98 传统色 LightSeaGreen。
   final Color linkColor;
 
+  /// 当前主题明暗（代码高亮配色需要区分）。
+  final Brightness brightness;
+
   final double imageMaxWidth;
   final double imageMaxHeight;
 
@@ -39,6 +42,7 @@ class UbbRenderConfig {
     this.codeBackground,
     this.quoteBackground,
     this.linkColor = const Color(0xFF20B2AA), // LightSeaGreen
+    this.brightness = Brightness.light,
     this.imageMaxWidth = double.infinity,
     this.imageMaxHeight = double.infinity,
     this.hideImage = false,

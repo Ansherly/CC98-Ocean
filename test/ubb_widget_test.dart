@@ -73,7 +73,9 @@ void main() {
     // 链接样式作用于容器 TextSpan，识别器附加在叶子 span 上
     final root = tester.widget<RichText>(find.byType(RichText)).text as TextSpan;
     final linkContainer = root.children!.whereType<TextSpan>().first;
-    expect(linkContainer.style?.decoration, TextDecoration.underline);
+    // 链接不再显示下划线，仅靠强调色区分
+    expect(linkContainer.style?.decoration ?? TextDecoration.none,
+        isNot(TextDecoration.underline));
     expect(leaves.first.recognizer, isA<TapGestureRecognizer>());
 
     // 点击文本字形所在的位置（RichText 中心可能不在短文本上）

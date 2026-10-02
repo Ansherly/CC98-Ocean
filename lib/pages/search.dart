@@ -9,6 +9,7 @@ import 'package:cc98_ocean/core/models/user.dart';
 import 'package:cc98_ocean/core/services/post_service.dart';
 import 'package:cc98_ocean/core/services/user_service.dart';
 import 'package:cc98_ocean/pages/profile.dart';
+import 'package:cc98_ocean/pages/user_space.dart';
 import 'package:cc98_ocean/pages/topic.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
@@ -277,7 +278,7 @@ class _SearchPageState extends State<SearchPage> {
                 context,
                 MaterialPageRoute(
                     builder: (_) =>
-                        Profile(userId: user.userId, canEscape: true))),
+                        UserSpacePage(userId: user.userId))),
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Row(

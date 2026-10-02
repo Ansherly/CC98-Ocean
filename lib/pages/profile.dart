@@ -10,35 +10,37 @@ import 'package:cc98_ocean/controls/clickarea.dart';
 import 'package:cc98_ocean/controls/expand_button.dart';
 import 'package:cc98_ocean/controls/fluent_iconbutton.dart';
 import 'package:cc98_ocean/core/constants/color_tokens.dart';
+import 'package:cc98_ocean/core/themes/setting_controller.dart';
+import 'package:cc98_ocean/pages/favorite.dart';
 import 'package:cc98_ocean/pages/friends.dart';
 import 'package:cc98_ocean/pages/history.dart';
 import 'package:cc98_ocean/pages/settings.dart';
 import 'package:cc98_ocean/pages/topic.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+/// 自己的空间页：固定头部（头像/统计/签名档）+ 下方可滑动的入口宫格。
+///
+/// 他人空间见 [UserSpacePage]。
 class Profile extends StatefulWidget {
-  final int userId;
-  final bool canEscape;
-  const Profile({super.key, required this.userId,required this.canEscape});
-  
+  const Profile({super.key});
+
   @override
   State<Profile> createState() => _ProfileState();
 }
 class _ProfileState extends State<Profile> {
   bool get wantKeepAlive => true;
-  final ScrollController controller = ScrollController();
 
   User userProfile=User(id: 0, name: "98用户", portraitUrl: "", fanCount: 0, postCount: 0, gender: 1, introduction: "", followCount: 0, popularity: 0, wealth: 0, isFollowing: false, levelTitle: "98er", signatureCode: "");
-  List<StandardPost> recentTopics = [];
   bool isLoading = true;
   bool hasError = false;
   bool isExpanded=true;
-  bool hasMore = true; 
   String errorMessage = '';
-  int currentPage = 0;
-  final int pageSize = 10;
   final _userService = UserService();
+
+  /// 今日是否已签到（null = 未知）。用于标题栏状态按钮。
+  bool? _signedToday;
   
   @override
   void initState() {
@@ -51,7 +53,7 @@ class _ProfileState extends State<Profile> {
       isLoading = true;
       hasError = false;
     });
-    final result = await _userService.getUserProfile(isMe: widget.userId == 0, userId: widget.userId);
+    final result = await _userService.getUserProfile(isMe: true, userId: 0);
     if (result.isError) {
       setState(() {
         errorMessage = result.error!.message;
@@ -59,26 +61,44 @@ class _ProfileState extends State<Profile> {
         isLoading = false;
       });
     } else {
-      userProfile = result.data!;
-      getTopics();
-      if (widget.userId == 0) _autoSignIn();
+      if (!mounted) return;
+      setState(() {
+        userProfile = result.data!;
+        isLoading = false;
+      });
+      // 记录自己的用户 ID，供「是否他人空间」比对
+      Provider.of<AppState>(context, listen: false).setUserId(userProfile.id);
+      _autoSignIn();
     }
   }
 
-  // 进入自己主页时自动签到（与 C# ProfilePage 行为一致）
-  Future<void> _autoSignIn() async {
-    final (ok, message) = await _userService.signIn();
+  // 进入自己主页时自动签到（与 C# ProfilePage 行为一致）。
+  // 仅"本次签到成功"弹提示；今日已签到/失败不弹。
+  Future<void> _autoSignIn() => _doSignIn(force: false);
+
+  /// 执行签到。[force] 为 true 表示用户手动点击（失败时给出提示）。
+  Future<void> _doSignIn({required bool force}) async {
+    final result = await _userService.signIn();
     if (!mounted) return;
-    InfoFlower.show(context,
-        icon: ok
-            ? FluentIcons.checkmark_circle_16_regular
-            : FluentIcons.error_circle_16_regular,
-        text: message);
-    // 签到会改变财富值，刷新显示
-    if (ok) {
-      final result = await _userService.getUserProfile(isMe: true);
-      if (!mounted) return;
-      if (!result.isError) setState(() => userProfile = result.data!);
+    switch (result.status) {
+      case SignInStatus.success:
+        setState(() => _signedToday = true);
+        InfoFlower.show(context,
+            icon: FluentIcons.checkmark_circle_16_regular,
+            text: result.message);
+        // 签到会改变财富值，刷新显示
+        final refreshed = await _userService.getUserProfile(isMe: true);
+        if (!mounted) return;
+        if (!refreshed.isError) setState(() => userProfile = refreshed.data!);
+      case SignInStatus.alreadySigned:
+        // 今日已签到：静默记录状态，不弹提示
+        setState(() => _signedToday = true);
+      case SignInStatus.failed:
+        if (force) {
+          InfoFlower.show(context,
+              icon: FluentIcons.error_circle_16_regular,
+              text: result.message);
+        }
     }
   }
 
@@ -98,32 +118,6 @@ class _ProfileState extends State<Profile> {
           icon: FluentIcons.error_circle_16_regular, text: '操作失败');
     }
   }
-  Future<void> getTopics() async {
-    // 获取历史发帖
-      final topicResult = await _userService.getRecentTopics(
-        isMe: widget.userId == 0,
-        userId: widget.userId,
-        start: currentPage * pageSize,
-      );
-
-      if (topicResult.isError) {
-        setState(() {
-          hasError = true;
-          errorMessage = topicResult.error!.message;
-          isLoading = false;
-        });
-      } else {
-        final parsed = topicResult.data!;
-        if (parsed.length == 11) {
-          parsed.removeLast();
-        }
-        setState(() {
-          recentTopics.addAll(parsed);
-          isLoading = false;
-          hasMore = parsed.length == pageSize;
-        });
-      }
-  }
   
 
   @override
@@ -137,31 +131,19 @@ class _ProfileState extends State<Profile> {
         ),       
         actionsPadding: EdgeInsets.only(right: 13),
         titleSpacing: 8,
-        leading:widget.canEscape? Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12,vertical: 8),
-          child: FluentIconbutton(
-            icon:FluentIcons.chevron_left_16_regular,
-            onPressed: () => Navigator.maybePop(context),
-          ),
-        ):null,
+        automaticallyImplyLeading: false,
         actions: [
-          if (widget.canEscape)
-            FluentIconbutton(
-              icon: userProfile.isFollowing
-                  ? FluentIcons.person_delete_16_regular
-                  : FluentIcons.person_add_16_regular,
-              iconColor: ColorTokens.softPurple,
-              tooltip: userProfile.isFollowing ? '取消关注' : '关注',
-              onPressed: _toggleFollow,
-            ),
-          if (widget.userId == 0)
-            FluentIconbutton(
-              icon: FluentIcons.history_16_regular,
-              iconColor: ColorTokens.softPurple,
-              tooltip: '浏览历史',
-              onPressed: () => Navigator.push(
-                  context, MaterialPageRoute(builder: (context) => const HistoryPage())),
-            ),
+          // 签到状态标识：点击强制再签到一次
+          FluentIconbutton(
+            icon: (_signedToday ?? false)
+                ? FluentIcons.checkmark_circle_16_filled
+                : FluentIcons.circle_16_regular,
+            iconColor: (_signedToday ?? false)
+                ? ColorTokens.softOrange
+                : ColorTokens.softPurple,
+            tooltip: (_signedToday ?? false) ? '今日已签到（点击再签到）' : '签到',
+            onPressed: () => _doSignIn(force: true),
+          ),
           FluentIconbutton(icon: FluentIcons.settings_16_regular,iconColor: ColorTokens.softPurple,onPressed: () {
             Navigator.push(context, MaterialPageRoute(builder: (context)=>Settings()));
           },),
@@ -175,20 +157,102 @@ class _ProfileState extends State<Profile> {
   }
 
   Widget buildLayout() {
-    if(hasError)return ErrorIndicator(icon: FluentIcons.music_note_2_16_regular, info: errorMessage,onTapped: getUserData);
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Column(
-        children: [
-            buildProfile(),
-            buildSignature(),
-            buildHistory(),
+    if (hasError) {
+      return ErrorIndicator(
+          icon: FluentIcons.music_note_2_16_regular,
+          info: errorMessage,
+          onTapped: getUserData);
+    }
+    // 自己的空间：头部（头像 + 统计 + 签名档）固定；下方入口宫格可滑动。
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+          child: Column(
+            children: [
+              buildProfile(),
+              const SizedBox(height: 8),
+              // 签名档（等价图中"成为大会员"横幅的位置）
+              buildSignature(),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+        // 签名档下方：入口宫格，整体可滚动
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+            children: [
+              buildEntryGrid(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 我的空间四入口：草稿箱 / 历史记录 / 收藏 / 稍后再看。
+  Widget buildEntryGrid() {
+    final entries = [
+      (
+        label: '草稿箱',
+        icon: FluentIcons.archive_16_regular,
+        // 官方 API 无草稿接口，先占位
+        onTap: () => InfoFlower.show(context,
+            icon: FluentIcons.archive_16_regular, text: '草稿箱功能开发中')
+      ),
+      (
+        label: '历史记录',
+        icon: FluentIcons.history_16_regular,
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (context) => const HistoryPage()))
+      ),
+      (
+        label: '收藏',
+        icon: FluentIcons.star_16_regular,
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (context) => const FavoritesPage()))
+      ),
+      (
+        label: '稍后再看',
+        icon: FluentIcons.bookmark_16_regular,
+        onTap: () => InfoFlower.show(context,
+            icon: FluentIcons.bookmark_16_regular, text: '稍后再看功能开发中')
+      ),
+    ];
+    return Row(
+      children: [
+        for (final e in entries)
+          Expanded(
+            child: _buildEntryItem(label: e.label, icon: e.icon, onTap: e.onTap),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildEntryItem({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 26, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(height: 6),
+            Text(label,
+                style: const TextStyle(fontSize: 13, color: ColorTokens.softGrey)),
           ],
+        ),
       ),
     );
-    
   }
-  
+
   Widget buildProfile() {
     var colorBase=ColorScheme.fromSeed(seedColor: ColorTokens.surfaceLight);
     return Container(
@@ -266,8 +330,7 @@ class _ProfileState extends State<Profile> {
               buildStatItem('动态', userProfile.postCount.toString()),
               SizedBox(height: 24,child: VerticalDivider(width: 16,thickness: 1,color: ColorTokens.dividerBlue,)),
               ClickArea(child: buildStatItem('粉丝', userProfile.fanCount.toString()),onTap: () {
-                if(widget.canEscape)return;//可以退出说明这不是用户自己的主页，不允许查看好友
-                Navigator.push(context,MaterialPageRoute(builder: (context) => Friends()));}),
+                Navigator.push(context,MaterialPageRoute(builder: (context) => const Friends()));}),
               SizedBox(height: 24,child: VerticalDivider(width: 16,thickness: 1,color: ColorTokens.dividerBlue,)),
               buildStatItem('财富', userProfile.wealth.toString()),
             ],
@@ -339,92 +402,5 @@ class _ProfileState extends State<Profile> {
        );
   }
   
-  Widget buildHistory() {
-    return Expanded(
-      child: ListView.builder(
-        controller: controller,
-        itemCount: recentTopics.length,
-        itemBuilder:(_,i){
-          return buildTopicCard(recentTopics[i]);
-        }
-    ));
-  }
   // 加载更多回复
-  Future<void> loadMore() async {
-    if (!hasMore || isLoading) return;
-    
-    setState(() {
-      currentPage++;
-      isLoading = true;
-    });
-    
-    await getTopics();
-  }
-
-  // 构建加载更多指示器
-  Widget _buildLoadMoreIndicator() {
-    if (!hasMore) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 16),
-        child: Center(
-          child: Text('没有更多回复了', style: TextStyle(color: Colors.grey)),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Center(
-        child: isLoading
-            ? const CircularProgressIndicator()
-            : TextButton(
-                onPressed: loadMore,
-                child: const Text('加载更多回复'),
-              ),
-      ),
-    );
-  }
-
-  Widget buildTopicCard(StandardPost post){
-    return Card(
-    elevation: 0,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(4),
-    ),
-    child: InkWell(
-      borderRadius: BorderRadius.circular(4),
-      onTap: () {
-        Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => Topic(topicId: post.id),
-            ),
-          );
-      },
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Icon(FluentIcons.notepad_16_regular,size: 16,color: ColorTokens.softPurple,),
-            SizedBox(width: 6,),
-            Expanded(
-              child: Text(
-                  post.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.grey[700],
-                    fontSize: 14,
-                  ),
-                ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-  }
-  
-  
 }
